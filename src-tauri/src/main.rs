@@ -107,7 +107,7 @@ fn main() {
                 app_state.settings.lock().unwrap();
 
             let mut enigo = Enigo::new(&Settings::default()).unwrap();
-            enigo.set_delay(1);
+            enigo.set_delay(0);
 
             let mut current_sequence = String::new();
             let mut is_capturing = false;
@@ -135,8 +135,10 @@ fn main() {
                     return;
                 }
 
+                let char_count_to_remove = current_sequence.len() + append.len() + 1;
+
                 // Undo captured sequence.
-                for _ in 0..(current_sequence.len() + 2) {
+                for _ in 0..char_count_to_remove {
                     let r = enigo.key(enigo::Key::Backspace, enigo::Direction::Click);
                     if r.is_err() {
                         println!("Error: {:?}", r);
@@ -144,6 +146,10 @@ fn main() {
                 }
 
                 let full_text = format!("{}{}", matching_expander.unwrap().text, append);
+
+                // Wait for backspace to finish.
+                // TODO: Maybe make this depend on the length of the text?
+                std::thread::sleep(std::time::Duration::from_millis(25));
 
                 enigo.text(full_text.as_str()).unwrap();
             }
