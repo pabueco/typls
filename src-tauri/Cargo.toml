@@ -16,10 +16,12 @@ tauri-build = { version = "2.0.0-alpha", features = [] }
 tauri = { version = "2.0.0-alpha", features = [] }
 tauri-plugin-shell = "2.0.0-alpha"
 serde_json = "1.0"
+serde = "1.0"
 active-win-pos-rs = "0.8"
 # rdev = "0.5"
 rdev = { git = "https://github.com/Narsil/rdev.git", branch = "main" }
 enigo = "0.2.0-rc2"
+tauri-plugin-process = "2.0.0-alpha.6"
 
 [features]
 # this feature is used for production builds or when `devPath` points to the filesystem

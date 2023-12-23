@@ -15,11 +15,14 @@
     "@iconify-json/tabler": "^1.1.102",
     "@nuxt/ui": "^2.11.1",
     "@tauri-apps/api": "^2.0.0-alpha.13",
+    "@tauri-apps/plugin-process": "2.0.0-alpha.5",
     "@tauri-apps/plugin-shell": "^2.0.0-alpha.3"
   },
   "devDependencies": {
     "@nuxt/devtools": "latest",
     "@tauri-apps/cli": "^2.0.0-alpha.20",
+    "@vueuse/core": "^10.7.0",
+    "@vueuse/nuxt": "^10.7.0",
     "nuxt": "^3.8.2",
     "vue": "^3.3.12",
     "vue-router": "^4.2.5"

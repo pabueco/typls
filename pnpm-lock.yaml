@@ -14,6 +14,9 @@ dependencies:
   '@tauri-apps/api':
     specifier: ^2.0.0-alpha.13
     version: 2.0.0-alpha.13
+  '@tauri-apps/plugin-process':
+    specifier: 2.0.0-alpha.5
+    version: 2.0.0-alpha.5
   '@tauri-apps/plugin-shell':
     specifier: ^2.0.0-alpha.3
     version: 2.0.0-alpha.3
@@ -25,6 +28,12 @@ devDependencies:
   '@tauri-apps/cli':
     specifier: ^2.0.0-alpha.20
     version: 2.0.0-alpha.20
+  '@vueuse/core':
+    specifier: ^10.7.0
+    version: 10.7.0(vue@3.3.12)
+  '@vueuse/nuxt':
+    specifier: ^10.7.0
+    version: 10.7.0(nuxt@3.8.2)(vue@3.3.12)
   nuxt:
     specifier: ^3.8.2
     version: 3.8.2(vite@5.0.0)
@@ -1890,6 +1899,12 @@ packages:
       '@tauri-apps/cli-win32-x64-msvc': 2.0.0-alpha.20
     dev: true
 
+  /@tauri-apps/plugin-process@2.0.0-alpha.5:
+    resolution: {integrity: sha512-GRCs45MPTVR4XiY2BSlctmSfI2z237vUbVe3qSbJMpPbtBHDHusOi4YOaBVoWTv3w3m0EtV9qqIXRYEp5WevsA==}
+    dependencies:
+      '@tauri-apps/api': 2.0.0-alpha.13
+    dev: false
+
   /@tauri-apps/plugin-shell@2.0.0-alpha.3:
     resolution: {integrity: sha512-v4qLTE9DfzpYdcjZq3ASOC7gFtMtzIDWN5Bo2FheB+pHQvDRq8mrP8gTdkL4/9pQaOFlB0B+MKCwANYhD1jLEQ==}
     dependencies:
@@ -1929,7 +1944,6 @@ packages:
 
   /@types/web-bluetooth@0.0.20:
     resolution: {integrity: sha512-g9gZnnXVq7gM7v3tJCWV/qw7w+KeOlSHAhgF9RytFyifW6AF61hdT2ucrYhPq9hLs5JIryeupHV3qGk95dH9ow==}
-    dev: false
 
   /@unhead/dom@1.8.9:
     resolution: {integrity: sha512-qY4CUVNKEM7lEAcTz5t71QYca+NXgUY5RwhSzB6sBBzZxQTiFOeTVKC6uWXU0N+3jBUdP/zdD3iN1JIjziDlng==}
@@ -2182,7 +2196,6 @@ packages:
     transitivePeerDependencies:
       - '@vue/composition-api'
       - vue
-    dev: false
 
   /@vueuse/integrations@10.7.0(fuse.js@6.6.2)(vue@3.3.12):
     resolution: {integrity: sha512-rxiMYgS+91n93qXpHZF9NbHhppWY6IJyVTDxt4acyChL0zZVx7P8FAAfpF1qVK8e4wfjerhpEiMJ0IZ1GWUZ2A==}
@@ -2246,7 +2259,24 @@ packages:
 
   /@vueuse/metadata@10.7.0:
     resolution: {integrity: sha512-GlaH7tKP2iBCZ3bHNZ6b0cl9g0CJK8lttkBNUX156gWvNYhTKEtbweWLm9rxCPIiwzYcr/5xML6T8ZUEt+DkvA==}
-    dev: false
+
+  /@vueuse/nuxt@10.7.0(nuxt@3.8.2)(vue@3.3.12):
+    resolution: {integrity: sha512-CYKMFRwTlZmfUuopC2jGJZ03s7RL5H1L/Xoz9xhQfs7seMS6kCSsVUT9iB0LqiuLxeP7WiInThgFnBbBc6LMTw==}
+    peerDependencies:
+      nuxt: ^3.0.0
+    dependencies:
+      '@nuxt/kit': 3.8.2
+      '@vueuse/core': 10.7.0(vue@3.3.12)
+      '@vueuse/metadata': 10.7.0
+      local-pkg: 0.5.0
+      nuxt: 3.8.2(vite@5.0.0)
+      vue-demi: 0.14.6(vue@3.3.12)
+    transitivePeerDependencies:
+      - '@vue/composition-api'
+      - rollup
+      - supports-color
+      - vue
+    dev: true
 
   /@vueuse/shared@10.7.0(vue@3.3.12):
     resolution: {integrity: sha512-kc00uV6CiaTdc3i1CDC4a3lBxzaBE9AgYNtFN87B5OOscqeWElj/uza8qVDmk7/U8JbqoONLbtqiLJ5LGRuqlw==}
@@ -2255,7 +2285,6 @@ packages:
     transitivePeerDependencies:
       - '@vue/composition-api'
       - vue
-    dev: false
 
   /abbrev@1.1.1:
     resolution: {integrity: sha512-nne9/IiQ/hzIhY6pdDnbBtz7DjPTKrY00P/zvPSm5pOFkl6xuGrGnXn/VtTNNfNtAfZ9/1RtehkszU9qcTii0Q==}
@@ -6522,7 +6551,6 @@ packages:
         optional: true
     dependencies:
       vue: 3.3.12
-    dev: false
 
   /vue-devtools-stub@0.1.0:
     resolution: {integrity: sha512-RutnB7X8c5hjq39NceArgXg28WZtZpGc3+J16ljMiYnFhKvd8hITxSWQSQ5bvldxMDU6gG5mkxl1MTQLXckVSQ==}
