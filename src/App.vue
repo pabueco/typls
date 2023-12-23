@@ -2,6 +2,12 @@
 import { invoke } from "@tauri-apps/api/core";
 import { relaunch } from "@tauri-apps/plugin-process";
 
+useHead({
+  htmlAttrs: {
+    class: "bg-gray-950 text-white",
+  },
+});
+
 type Settings = {
   triggerChar: string;
   expanders: {
