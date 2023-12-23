@@ -156,11 +156,20 @@ fn main() {
 
             if let Err(error) = listen(move |event| {
                 match event.event_type {
+                    // Confirm capture without appending anything.
                     EventType::KeyPress(Key::RightArrow) => {
                         if !is_capturing {
                             return;
                         }
                         end_capturing(&current_sequence, &expanders, &mut enigo, "");
+                        is_capturing = false;
+                        current_sequence = String::new();
+                    }
+                    // Cancel capture.
+                    EventType::KeyPress(Key::Escape) => {
+                        if !is_capturing {
+                            return;
+                        }
                         is_capturing = false;
                         current_sequence = String::new();
                     }
