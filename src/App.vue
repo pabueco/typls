@@ -43,24 +43,11 @@ const restart = async () => {
     <UInput v-model="settings.triggerChar" />
 
     <div class="space-y-3">
-      <div
-        v-for="(expander, i) of settings.expanders"
-        :key="`${i}`"
-        class="flex gap-2"
-      >
-        <div>
-          <UInput v-model="expander.abbr" placeholder="Abbreviation" />
-        </div>
-        <div class="flex-1">
-          <UInput v-model="expander.text" placeholder="Full text" />
-        </div>
-        <div>
-          <UButton
-            @click="settings.expanders.splice(i, 1)"
-            color="gray"
-            icon="i-tabler-trash"
-          ></UButton>
-        </div>
+      <div v-for="(expander, i) of settings.expanders" :key="`${i}`">
+        <Expansion
+          v-model="settings.expanders[i]"
+          @remove="settings.expanders.splice(i, 1)"
+        />
       </div>
     </div>
 
