@@ -10,7 +10,9 @@ useHead({
 });
 
 type Settings = {
-  triggerChar: string;
+  trigger: {
+    string: string;
+  };
   expanders: {
     abbr: string;
     text: string;
@@ -36,16 +38,25 @@ watchDebounced(
 const restart = async () => {
   await relaunch();
 };
+
+const duplicates = computed(() => {
+  const abbrs = settings.value.expanders.map((e) => e.abbr);
+  return abbrs.filter((a, i) => abbrs.indexOf(a) !== i);
+});
 </script>
 
 <template>
   <div class="p-6 space-y-6">
-    <UInput v-model="settings.triggerChar" />
+    <h5 class="font-bold text-base">Trigger</h5>
 
-    <div class="space-y-3">
+    <UInput v-model="settings.trigger.string" />
+
+    <h5 class="font-bold text-base">Expansions</h5>
+    <div class="space-y-5">
       <div v-for="(expander, i) of settings.expanders" :key="`${i}`">
         <Expansion
           v-model="settings.expanders[i]"
+          :duplicate="duplicates.includes(expander.abbr)"
           @remove="settings.expanders.splice(i, 1)"
         />
       </div>

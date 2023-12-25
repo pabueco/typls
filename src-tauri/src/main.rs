@@ -12,17 +12,21 @@ use rdev::{listen, EventType, Key};
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
 #[serde(rename_all = "camelCase")]
-#[derive(Clone)]
 struct AppSettings {
-    trigger_char: String,
+    trigger: Trigger,
     expanders: Vec<Expander>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
 #[serde(rename_all = "camelCase")]
-#[derive(Clone)]
+struct Trigger {
+    string: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+#[serde(rename_all = "camelCase")]
 struct Expander {
     abbr: String,
     text: String,
@@ -62,7 +66,9 @@ fn set_settings(
 
 fn main() {
     let default_app_settings = AppSettings {
-        trigger_char: String::from("'"),
+        trigger: Trigger {
+            string: "'".to_string(),
+        },
         expanders: vec![],
     };
 
@@ -111,9 +117,6 @@ fn main() {
             let mut enigo = Enigo::new(&Settings::default()).unwrap();
             enigo.set_delay(0);
 
-            let mut current_sequence = String::new();
-            let mut is_capturing = false;
-
             const SEQUENCE_END_CHARS: [&str; 7] = [" ", ".", ";", "!", "?", ":", ","];
 
             fn end_capturing(
@@ -153,11 +156,16 @@ fn main() {
                 enigo.text(full_text.as_str()).unwrap();
             }
 
+            let mut current_sequence = String::new();
+            let mut is_capturing = false;
+
             let app_handle_ = app.app_handle().clone();
 
             if let Err(error) = listen(move |event| {
                 let app_state = app_handle_.state::<AppState>();
                 let app_settings = app_state.settings.lock().unwrap();
+
+                let mut return_early = false;
 
                 match event.event_type {
                     // Confirm capture without appending anything.
@@ -168,6 +176,7 @@ fn main() {
                         end_capturing(&current_sequence, &app_settings.expanders, &mut enigo, "");
                         is_capturing = false;
                         current_sequence = String::new();
+                        return_early = true;
                     }
                     // Cancel capture.
                     EventType::KeyPress(Key::Escape) => {
@@ -176,30 +185,51 @@ fn main() {
                         }
                         is_capturing = false;
                         current_sequence = String::new();
+                        return_early = true;
+                    }
+                    EventType::KeyPress(Key::Backspace) => {
+                        if !is_capturing {
+                            return;
+                        }
+                        current_sequence.pop();
+                        return_early = true;
                     }
                     _ => (),
                 }
+
+                if return_early {
+                    return;
+                }
+
                 match event.name {
                     Some(string) => {
-                        if string == app_settings.trigger_char {
-                            println!("Start capturing");
-                            current_sequence = String::new();
-                            is_capturing = true;
+                        if string.is_empty() {
+                            return;
                         }
-                        // TODO: Make tab work? string == "\t"
-                        else if is_capturing && SEQUENCE_END_CHARS.contains(&string.as_str()) {
-                            end_capturing(
-                                &current_sequence,
-                                &app_settings.expanders,
-                                &mut enigo,
-                                &string,
-                            );
 
-                            is_capturing = false;
-                            current_sequence = String::new();
-                        } else if is_capturing {
-                            current_sequence.push_str(&string);
-                            println!("current_sequence: {}", current_sequence);
+                        if is_capturing {
+                            // TODO: Make tab work? string == '\t'
+                            if SEQUENCE_END_CHARS.contains(&string.as_str()) {
+                                println!("End capturing, {}", current_sequence);
+                                end_capturing(
+                                    &current_sequence,
+                                    &app_settings.expanders,
+                                    &mut enigo,
+                                    &string,
+                                );
+
+                                is_capturing = false;
+                                current_sequence = String::new();
+                            } else {
+                                current_sequence.push_str(&string);
+                                println!("current_sequence: {}", current_sequence);
+                            }
+                        } else {
+                            if string == app_settings.trigger.string {
+                                println!("Start capturing");
+                                current_sequence = String::new();
+                                is_capturing = true;
+                            }
                         }
                     }
                     None => (),
@@ -228,7 +258,15 @@ fn load_settings(app: &tauri::AppHandle) {
     // Ensure settings file exists.
     if setting_file_path.exists() {
         let settings_json = std::fs::read_to_string(setting_file_path).unwrap();
-        let new_settings: AppSettings = serde_json::from_str(&settings_json).unwrap();
+
+        // parse settings and catch errors
+        let new_settings: AppSettings = match serde_json::from_str(&settings_json) {
+            Ok(settings) => settings,
+            Err(error) => {
+                println!("Error parsing settings: {:?}", error);
+                AppSettings::default()
+            }
+        };
 
         // Write new settings into app state.
         let app_state = app.state::<AppState>();

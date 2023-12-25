@@ -4,6 +4,7 @@ const $props = defineProps<{
     abbr: string;
     text: string;
   };
+  duplicate?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -23,7 +24,12 @@ const expander = useVModel($props, "modelValue", emit);
 <template>
   <div class="flex gap-2">
     <div>
-      <UInput v-model="expander.abbr" placeholder="Abbreviation" />
+      <UFormGroup :error="duplicate ? 'Duplicate abbreviation' : false">
+        <UInput v-model="expander.abbr" placeholder="Abbreviation" />
+      </UFormGroup>
+    </div>
+    <div class="pt-1.5">
+      <UIcon name="i-tabler-arrow-right" class="text-gray-600" />
     </div>
     <div class="flex-1">
       <!-- <UInput v-model="expander.text" placeholder="Full text" /> -->
