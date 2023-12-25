@@ -70,7 +70,7 @@ const restart = async () => {
       </UButton>
     </div>
 
-    <div v-if="haveSettingsChanged">
+    <!-- <div v-if="haveSettingsChanged">
       <UAlert
         icon="i-tabler-alert-triangle-filled"
         color="amber"
@@ -89,6 +89,6 @@ const restart = async () => {
           </div>
         </template>
       </UAlert>
-    </div>
+    </div> -->
   </div>
 </template>

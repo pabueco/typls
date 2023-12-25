@@ -102,9 +102,11 @@ fn main() {
         .setup(|app| {
             load_settings(app.app_handle());
 
-            let app_state = app.state::<AppState>();
-            let app_settings: std::sync::MutexGuard<'_, AppSettings> =
-                app_state.settings.lock().unwrap();
+            // let app_state = app.state::<AppState>();
+            // let app_settings: std::sync::MutexGuard<'_, AppSettings> =
+            //     app_state.settings.lock().unwrap();
+            // let trigger_char = app_settings.trigger_char.clone();
+            // let expanders = app_settings.expanders.clone();
 
             let mut enigo = Enigo::new(&Settings::default()).unwrap();
             enigo.set_delay(0);
@@ -113,9 +115,6 @@ fn main() {
             let mut is_capturing = false;
 
             const SEQUENCE_END_CHARS: [&str; 7] = [" ", ".", ";", "!", "?", ":", ","];
-
-            let trigger_char = app_settings.trigger_char.clone();
-            let expanders = app_settings.expanders.clone();
 
             fn end_capturing(
                 current_sequence: &String,
@@ -154,14 +153,19 @@ fn main() {
                 enigo.text(full_text.as_str()).unwrap();
             }
 
+            let app_handle_ = app.app_handle().clone();
+
             if let Err(error) = listen(move |event| {
+                let app_state = app_handle_.state::<AppState>();
+                let app_settings = app_state.settings.lock().unwrap();
+
                 match event.event_type {
                     // Confirm capture without appending anything.
                     EventType::KeyPress(Key::RightArrow) => {
                         if !is_capturing {
                             return;
                         }
-                        end_capturing(&current_sequence, &expanders, &mut enigo, "");
+                        end_capturing(&current_sequence, &app_settings.expanders, &mut enigo, "");
                         is_capturing = false;
                         current_sequence = String::new();
                     }
@@ -177,14 +181,20 @@ fn main() {
                 }
                 match event.name {
                     Some(string) => {
-                        if string == trigger_char {
+                        if string == app_settings.trigger_char {
                             println!("Start capturing");
                             current_sequence = String::new();
                             is_capturing = true;
                         }
                         // TODO: Make tab work? string == "\t"
                         else if is_capturing && SEQUENCE_END_CHARS.contains(&string.as_str()) {
-                            end_capturing(&current_sequence, &expanders, &mut enigo, &string);
+                            end_capturing(
+                                &current_sequence,
+                                &app_settings.expanders,
+                                &mut enigo,
+                                &string,
+                            );
+
                             is_capturing = false;
                             current_sequence = String::new();
                         } else if is_capturing {
