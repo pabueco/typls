@@ -124,6 +124,7 @@ fn main() {
                 expanders: &Vec<Expander>,
                 enigo: &mut Enigo,
                 append: &str,
+                append_enter: bool,
             ) {
                 println!("End capturing, {}", current_sequence);
 
@@ -137,7 +138,8 @@ fn main() {
                     return;
                 }
 
-                let char_count_to_remove = current_sequence.len() + append.len() + 1;
+                let char_count_to_remove =
+                    current_sequence.len() + append.len() + 1 + if append_enter { 1 } else { 0 };
 
                 // Undo captured sequence.
                 for _ in 0..char_count_to_remove {
@@ -154,6 +156,12 @@ fn main() {
                 std::thread::sleep(std::time::Duration::from_millis(25));
 
                 enigo.text(full_text.as_str()).unwrap();
+
+                if append_enter {
+                    enigo
+                        .key(enigo::Key::Return, enigo::Direction::Click)
+                        .unwrap();
+                }
             }
 
             let mut current_sequence = String::new();
@@ -169,11 +177,17 @@ fn main() {
 
                 match event.event_type {
                     // Confirm capture without appending anything.
-                    EventType::KeyPress(Key::RightArrow) => {
+                    EventType::KeyPress(Key::RightArrow) | EventType::KeyPress(Key::Return) => {
                         if !is_capturing {
                             return;
                         }
-                        end_capturing(&current_sequence, &app_settings.expanders, &mut enigo, "");
+                        end_capturing(
+                            &current_sequence,
+                            &app_settings.expanders,
+                            &mut enigo,
+                            "",
+                            event.event_type == EventType::KeyPress(Key::Return),
+                        );
                         is_capturing = false;
                         current_sequence = String::new();
                         return_early = true;
@@ -191,7 +205,13 @@ fn main() {
                         if !is_capturing {
                             return;
                         }
-                        current_sequence.pop();
+
+                        if current_sequence.is_empty() {
+                            is_capturing = false;
+                        } else {
+                            current_sequence.pop();
+                        }
+
                         return_early = true;
                     }
                     _ => (),
@@ -216,6 +236,7 @@ fn main() {
                                     &app_settings.expanders,
                                     &mut enigo,
                                     &string,
+                                    false,
                                 );
 
                                 is_capturing = false;
