@@ -175,6 +175,10 @@ fn main() {
 
                 let mut return_early = false;
 
+                if app_settings.trigger.string.is_empty() {
+                    return;
+                }
+
                 match event.event_type {
                     // Confirm capture without appending anything.
                     EventType::KeyPress(Key::RightArrow) | EventType::KeyPress(Key::Return) => {
