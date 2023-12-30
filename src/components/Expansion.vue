@@ -25,7 +25,11 @@ const expander = useVModel($props, "modelValue", emit);
   <div class="flex gap-2">
     <div>
       <UFormGroup :error="duplicate ? 'Duplicate abbreviation' : false">
-        <UInput v-model="expander.abbr" placeholder="Abbreviation" />
+        <UInput
+          v-model="expander.abbr"
+          placeholder="Abbreviation"
+          class="font-mono"
+        />
       </UFormGroup>
     </div>
     <div class="pt-1.5">
@@ -33,7 +37,12 @@ const expander = useVModel($props, "modelValue", emit);
     </div>
     <div class="flex-1">
       <!-- <UInput v-model="expander.text" placeholder="Full text" /> -->
-      <UTextarea v-model="expander.text" autoresize :rows="1" />
+      <UTextarea
+        v-model="expander.text"
+        autoresize
+        :rows="1"
+        placeholder="Expanded text"
+      />
     </div>
     <div>
       <UButton

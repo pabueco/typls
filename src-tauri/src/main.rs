@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use active_win_pos_rs::{get_active_window, ActiveWindow};
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -128,15 +129,38 @@ fn main() {
             ) {
                 println!("End capturing, {}", current_sequence);
 
+                let parts = current_sequence.split("|");
+                let abbr = parts.clone().next().unwrap();
+
                 // Find matching expander
-                let matching_expander = expanders
-                    .iter()
-                    .find(|&e| e.abbr == current_sequence.to_string());
+                let matching_expander = expanders.iter().find(|&e| e.abbr == abbr.to_string());
 
                 // Return if no matching expander found.
                 if matching_expander.is_none() {
                     return;
                 }
+
+                let mut text = matching_expander.unwrap().text.clone();
+
+                let mut variable_map = HashMap::new();
+
+                for part in parts.skip(1) {
+                    let pair: Vec<&str> = part.split("=").collect();
+                    let (key, value) = if pair.len() == 2 {
+                        (pair[0], pair[1])
+                    } else {
+                        ("", pair[0])
+                    };
+                    variable_map.insert(key, value);
+
+                    if key.is_empty() {
+                        text = text.replacen("{}", value, 1);
+                    } else {
+                        text = text.replace(&format!("{{{}}}", key), value);
+                    }
+                }
+
+                println!("text: {}", text);
 
                 let char_count_to_remove =
                     current_sequence.len() + append.len() + 1 + if append_enter { 1 } else { 0 };
@@ -149,11 +173,15 @@ fn main() {
                     }
                 }
 
-                let full_text = format!("{}{}", matching_expander.unwrap().text, append);
+                let full_text = format!("{}{}", text, append);
 
                 // Wait for backspace to finish.
                 // TODO: Maybe make this depend on the length of the text?
-                std::thread::sleep(std::time::Duration::from_millis(25));
+                std::thread::sleep(std::time::Duration::from_millis(
+                    (char_count_to_remove * 10 / 2).try_into().unwrap(),
+                ));
+
+                println!("full_text: {}", full_text.as_str());
 
                 enigo.text(full_text.as_str()).unwrap();
 
