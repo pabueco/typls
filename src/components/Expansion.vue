@@ -18,37 +18,56 @@ const emit = defineEmits<{
   (event: "remove"): void;
 }>();
 
-const expander = useVModel($props, "modelValue", emit);
+const expansion = useVModel($props, "modelValue", emit);
+
+const isEditing = ref(!expansion.value.abbr && !expansion.value.text);
 </script>
 
 <template>
   <div class="flex gap-2">
-    <div>
-      <UFormGroup :error="duplicate ? 'Duplicate abbreviation' : false">
-        <UInput
-          v-model="expander.abbr"
-          placeholder="Abbreviation"
-          class="font-mono"
+    <div class="contents" @dblclick="isEditing = true">
+      <div class="w-32">
+        <UFormGroup :error="duplicate ? 'Duplicate abbreviation' : false">
+          <UInput
+            v-model="expansion.abbr"
+            placeholder="Abbreviation"
+            class="font-mono text-right"
+            :variant="isEditing ? 'outline' : 'none'"
+            :disabled="!isEditing"
+            :ui="{ base: '!cursor-auto text-right' }"
+            autofocus
+          />
+        </UFormGroup>
+      </div>
+      <div class="pt-1.5">
+        <UIcon name="i-tabler-arrow-right" class="text-gray-500" />
+      </div>
+      <div class="flex-1">
+        <UTextarea
+          v-model="expansion.text"
+          autoresize
+          :rows="1"
+          placeholder="Expanded text"
+          :variant="isEditing ? 'outline' : 'none'"
+          :disabled="!isEditing"
+          :ui="{ base: '!cursor-auto' }"
         />
-      </UFormGroup>
+      </div>
     </div>
-    <div class="pt-1.5">
-      <UIcon name="i-tabler-arrow-right" class="text-gray-600" />
-    </div>
-    <div class="flex-1">
-      <!-- <UInput v-model="expander.text" placeholder="Full text" /> -->
-      <UTextarea
-        v-model="expander.text"
-        autoresize
-        :rows="1"
-        placeholder="Expanded text"
-      />
-    </div>
-    <div>
+    <div class="flex gap-2 items-start">
       <UButton
         @click="emit('remove')"
-        color="gray"
+        color="red"
         icon="i-tabler-trash"
+        :class="{
+          invisible: !isEditing,
+        }"
+      ></UButton>
+      <UButton
+        @click="isEditing = !isEditing"
+        color="gray"
+        :icon="isEditing ? 'i-tabler-check' : 'i-tabler-pencil'"
+        variant="ghost"
       ></UButton>
     </div>
   </div>

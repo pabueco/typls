@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase")]
 struct AppSettings {
     trigger: Trigger,
-    expanders: Vec<Expander>,
+    expansions: Vec<Expansion>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
@@ -28,7 +28,7 @@ struct Trigger {
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 #[serde(rename_all = "camelCase")]
-struct Expander {
+struct Expansion {
     abbr: String,
     text: String,
 }
@@ -70,7 +70,7 @@ fn main() {
         trigger: Trigger {
             string: "'".to_string(),
         },
-        expanders: vec![],
+        expansions: vec![],
     };
 
     let initial_active_window = get_active_window().unwrap();
@@ -113,7 +113,7 @@ fn main() {
             // let app_settings: std::sync::MutexGuard<'_, AppSettings> =
             //     app_state.settings.lock().unwrap();
             // let trigger_char = app_settings.trigger_char.clone();
-            // let expanders = app_settings.expanders.clone();
+            // let expansions = app_settings.expansions.clone();
 
             let mut enigo = Enigo::new(&Settings::default()).unwrap();
             enigo.set_delay(0);
@@ -122,7 +122,7 @@ fn main() {
 
             fn end_capturing(
                 current_sequence: &String,
-                expanders: &Vec<Expander>,
+                expansions: &Vec<Expansion>,
                 enigo: &mut Enigo,
                 append: &str,
                 append_enter: bool,
@@ -132,15 +132,15 @@ fn main() {
                 let parts = current_sequence.split("|");
                 let abbr = parts.clone().next().unwrap();
 
-                // Find matching expander
-                let matching_expander = expanders.iter().find(|&e| e.abbr == abbr.to_string());
+                // Find matching expansion
+                let matching_expansion = expansions.iter().find(|&e| e.abbr == abbr.to_string());
 
-                // Return if no matching expander found.
-                if matching_expander.is_none() {
+                // Return if no matching expansion found.
+                if matching_expansion.is_none() {
                     return;
                 }
 
-                let mut text = matching_expander.unwrap().text.clone();
+                let mut text = matching_expansion.unwrap().text.clone();
 
                 let mut variable_map = HashMap::new();
 
@@ -215,7 +215,7 @@ fn main() {
                         }
                         end_capturing(
                             &current_sequence,
-                            &app_settings.expanders,
+                            &app_settings.expansions,
                             &mut enigo,
                             "",
                             event.event_type == EventType::KeyPress(Key::Return),
@@ -265,7 +265,7 @@ fn main() {
                                 println!("End capturing, {}", current_sequence);
                                 end_capturing(
                                     &current_sequence,
-                                    &app_settings.expanders,
+                                    &app_settings.expansions,
                                     &mut enigo,
                                     &string,
                                     false,
