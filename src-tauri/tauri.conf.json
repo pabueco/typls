@@ -6,8 +6,8 @@
     "distDir": "../dist"
   },
   "package": {
-    "productName": "typeless",
-    "version": "0.0.0"
+    "productName": "typls",
+    "version": "0.0.1"
   },
   "tauri": {
     "bundle": {
@@ -29,7 +29,7 @@
       {
         "fullscreen": false,
         "resizable": true,
-        "title": "typeless",
+        "title": "typls",
         "width": 800,
         "height": 600
       }
