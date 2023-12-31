@@ -223,7 +223,9 @@ fn main() {
                 // Wait for backspace to finish.
                 // TODO: Maybe make this depend on the length of the text?
                 std::thread::sleep(std::time::Duration::from_millis(
-                    (char_count_to_remove * 10 / 2).try_into().unwrap(),
+                    (std::cmp::max(char_count_to_remove * 10 / 2, 50))
+                        .try_into()
+                        .unwrap(),
                 ));
 
                 println!("full_text: {}", full_text.as_str());
