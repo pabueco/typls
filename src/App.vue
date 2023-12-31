@@ -105,6 +105,13 @@ const resetConfirmChars = async () => {
 const openSettingsFolder = async () => {
   await invoke("open_settings_dir");
 };
+
+const addNewExpansion = (above = false) => {
+  settings.value.expansions[above ? "unshift" : "push"]({
+    abbr: "",
+    text: "",
+  });
+};
 </script>
 
 <template>
@@ -261,10 +268,7 @@ const openSettingsFolder = async () => {
               variant="none"
               icon="i-tabler-search"
             />
-            <UButton
-              @click="settings.expansions.push({ abbr: '', text: '' })"
-              variant="outline"
-            >
+            <UButton @click="addNewExpansion(true)" variant="outline">
               Add new
             </UButton>
           </div>
@@ -276,19 +280,18 @@ const openSettingsFolder = async () => {
               v-model="settings.expansions[i]"
               :duplicate="duplicates.includes(expansion.abbr)"
               @remove="settings.expansions.splice(i, 1)"
-              class="mt-5 border-b border-gray-800 pb-5"
-              :class="{ hidden: !expansionsFiltered.includes(expansion) }"
+              class="mt-5 border-gray-800 pb-5"
+              :class="{
+                hidden: !expansionsFiltered.includes(expansion),
+                'border-b': i !== settings.expansions.length - 1,
+              }"
             />
           </div>
         </div>
 
         <div>
-          <UButton
-            @click="settings.expansions.push({ abbr: '', text: '' })"
-            block
-            color="gray"
-          >
-            Add new
+          <UButton @click="addNewExpansion(false)" block color="gray">
+            Add new expansion
           </UButton>
         </div>
       </div>
