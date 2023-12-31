@@ -108,7 +108,10 @@ fn default_settings() -> AppSettings {
             key_right_arrow: true,
             append: true,
         },
-        expansions: vec![],
+        expansions: vec![Expansion {
+            abbr: "typls".to_string(),
+            text: "Type less with typls -> https://typls.app".to_string(),
+        }],
     }
 }
 
