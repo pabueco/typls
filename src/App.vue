@@ -14,6 +14,12 @@ type Settings = {
   trigger: {
     string: string;
   };
+  confirm: {
+    chars: string[];
+    keyEnter: boolean;
+    keyRightArrow: boolean;
+    append: boolean;
+  };
   expansions: {
     abbr: string;
     text: string;
@@ -26,11 +32,21 @@ const settings = ref<Settings>(cloneDeep(initialSettings.value));
 const haveSettingsChanged = ref(false);
 const hasJustSaved = autoResetRef(false, 2000);
 
+watch(
+  settings,
+  () => {
+    if (hasJustSaved.value) {
+      hasJustSaved.value = false;
+    }
+  },
+  { deep: true }
+);
+
 watchDebounced(
   settings,
   async (value) => {
     if (isInvalid.value) return;
-    haveSettingsChanged.value = !isEqual(value, initialSettings);
+    haveSettingsChanged.value = !isEqual(value, initialSettings.value);
     if (!haveSettingsChanged.value) return;
     console.log("settings changed", value);
     await save();
@@ -80,6 +96,15 @@ const expansionsFiltered = computed(() => {
     );
   });
 });
+
+const resetConfirmChars = async () => {
+  const defaultSettings = await invoke<Settings>("get_default_settings");
+  settings.value.confirm.chars = defaultSettings.confirm.chars;
+};
+
+const openSettingsFolder = async () => {
+  await invoke("open_settings_dir");
+};
 </script>
 
 <template>
@@ -87,10 +112,31 @@ const expansionsFiltered = computed(() => {
     <UNotifications />
 
     <div
-      class="sticky top-0 z-10 w-full bg-gray-950 border-b border-gray-700 flex items-center justify-between px-6 py-4"
+      class="sticky top-0 z-10 w-full bg-gray-950 border-b border-gray-700 grid grid-cols-3 items-center justify-between px-8 py-5"
     >
-      <div class="font-bold text-lg font-mono">typeless</div>
-      <div class="flex items-center">
+      <div class="flex gap-1">
+        <UTooltip text="Open settings directory">
+          <UButton
+            icon="i-tabler-folder-cog"
+            @click="openSettingsFolder"
+            variant="ghost"
+            color="gray"
+            size="sm"
+          />
+        </UTooltip>
+        <UButton
+          to="https://github.com/pabueco"
+          target="_blank"
+          icon="i-tabler-brand-github"
+          variant="ghost"
+          color="gray"
+          size="sm"
+        />
+      </div>
+      <div class="flex items-center justify-center">
+        <div class="font-bold text-xl font-mono">typls</div>
+      </div>
+      <div class="flex items-center justify-end">
         <Transition
           enter-from-class="opacity-0 translate-x-2"
           leave-to-class="opacity-0 translate-x-2"
@@ -116,63 +162,135 @@ const expansionsFiltered = computed(() => {
       </div>
     </div>
 
-    <div class="p-6 space-y-8">
-      <UFormGroup
-        label="Trigger"
-        :error="
-          isInvalid ? 'Cannot be empty or longer than one character.' : ''
-        "
-        help="The character that indicates that the word after it should be expanded."
-      >
-        <UInput
-          v-model="settings.trigger.string"
-          placeholder="Character"
-          maxlength="1"
-          class="font-mono"
-          @click="(e: MouseEvent) => (e.target as HTMLInputElement).select()"
-        />
-      </UFormGroup>
+    <div class="p-8 space-y-10">
+      <div class="grid grid-cols-2 gap-6">
+        <div>
+          <UFormGroup
+            label="Trigger"
+            :error="
+              isInvalid ? 'Cannot be empty or longer than one character.' : ''
+            "
+            help="The character that starts the capturing."
+          >
+            <UInput
+              v-model="settings.trigger.string"
+              placeholder="Character"
+              maxlength="1"
+              class="font-mono"
+              @click="(e: MouseEvent) => (e.target as HTMLInputElement).select()"
+            />
+          </UFormGroup>
+        </div>
 
-      <div class="flex justify-between items-center">
-        <h5 class="font-bold text-xl">Expansions</h5>
+        <div class="">
+          <div class="flex items-start">
+            <div class="flex-1">
+              <UFormGroup
+                label="Confirmation"
+                :error="
+                  isInvalid
+                    ? 'Cannot be empty or longer than one character.'
+                    : ''
+                "
+                help="Characters expanding the captured text."
+              >
+                <UInput
+                  :model-value="settings.confirm.chars.join('')"
+                  @update:model-value="
+                    settings.confirm.chars = $event.split('')
+                  "
+                  placeholder="Character"
+                  class="font-mono"
+                />
 
-        <div class="flex items-center gap-2">
-          <UInput
-            v-model="searchQuery"
-            placeholder="Type to search..."
-            type="search"
-            variant="none"
-            icon="i-tabler-search"
-          />
+                <template #hint>
+                  <button
+                    @click="resetConfirmChars"
+                    class="text-xs hover:text-white transition"
+                  >
+                    Reset
+                  </button>
+                </template>
+              </UFormGroup>
+            </div>
+
+            <div class="flex mt-6 ml-2 gap-2">
+              <UTooltip text="Enter key">
+                <UButton
+                  icon="i-tabler-corner-down-left"
+                  @click="
+                    settings.confirm.keyEnter = !settings.confirm.keyEnter
+                  "
+                  :variant="settings.confirm.keyEnter ? 'soft' : 'ghost'"
+                  :color="settings.confirm.keyEnter ? 'primary' : 'gray'"
+                />
+              </UTooltip>
+              <UTooltip text="Right arrow key">
+                <UButton
+                  icon="i-tabler-arrow-right"
+                  @click="
+                    settings.confirm.keyRightArrow =
+                      !settings.confirm.keyRightArrow
+                  "
+                  :variant="settings.confirm.keyRightArrow ? 'soft' : 'ghost'"
+                  :color="settings.confirm.keyRightArrow ? 'primary' : 'gray'"
+                />
+              </UTooltip>
+            </div>
+          </div>
+          <div class="mt-3">
+            <UFormGroup>
+              <UCheckbox
+                v-model="settings.confirm.append"
+                label="Append the characters/keys to the expanded text."
+              />
+            </UFormGroup>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-6">
+        <div class="flex justify-between items-center">
+          <h5 class="font-bold text-xl">Expansions</h5>
+
+          <div class="flex items-center gap-2">
+            <UInput
+              v-model="searchQuery"
+              placeholder="Type to search..."
+              type="search"
+              variant="none"
+              icon="i-tabler-search"
+            />
+            <UButton
+              @click="settings.expansions.push({ abbr: '', text: '' })"
+              variant="outline"
+            >
+              Add new
+            </UButton>
+          </div>
+        </div>
+
+        <div>
+          <div v-for="(expansion, i) of settings.expansions" :key="`${i}`">
+            <Expansion
+              v-model="settings.expansions[i]"
+              :duplicate="duplicates.includes(expansion.abbr)"
+              @remove="settings.expansions.splice(i, 1)"
+              class="mt-5 border-b border-gray-800 pb-5"
+              :class="{ hidden: !expansionsFiltered.includes(expansion) }"
+            />
+          </div>
+        </div>
+
+        <div>
           <UButton
             @click="settings.expansions.push({ abbr: '', text: '' })"
-            variant="outline"
+            block
+            color="gray"
           >
             Add new
           </UButton>
         </div>
-      </div>
-
-      <div>
-        <div v-for="(expansion, i) of settings.expansions" :key="`${i}`">
-          <Expansion
-            v-model="settings.expansions[i]"
-            :duplicate="duplicates.includes(expansion.abbr)"
-            @remove="settings.expansions.splice(i, 1)"
-            class="mt-5 border-b border-gray-800 pb-5"
-            :class="{ hidden: !expansionsFiltered.includes(expansion) }"
-          />
-        </div>
-      </div>
-
-      <div>
-        <UButton
-          @click="settings.expansions.push({ abbr: '', text: '' })"
-          block
-          color="gray"
-        >
-          Add new
-        </UButton>
       </div>
 
       <div v-if="isInvalid" class="sticky inset-x-0 bottom-0 mt-10">

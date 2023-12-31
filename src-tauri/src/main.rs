@@ -17,6 +17,7 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase")]
 struct AppSettings {
     trigger: Trigger,
+    confirm: Confirm,
     expansions: Vec<Expansion>,
 }
 
@@ -24,6 +25,15 @@ struct AppSettings {
 #[serde(rename_all = "camelCase")]
 struct Trigger {
     string: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+#[serde(rename_all = "camelCase")]
+struct Confirm {
+    chars: Vec<String>,
+    key_enter: bool,
+    key_right_arrow: bool,
+    append: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
@@ -65,13 +75,45 @@ fn set_settings(
     Ok(())
 }
 
-fn main() {
-    let default_app_settings = AppSettings {
+#[tauri::command]
+fn get_default_settings() -> Result<AppSettings, String> {
+    Ok(default_settings())
+}
+
+#[tauri::command]
+fn open_settings_dir(app: tauri::AppHandle) {
+    let app_config_dir = get_settings_directory_path(&app);
+
+    println!("Opening settings dir: {:?}", app_config_dir);
+
+    if !app_config_dir.exists() {
+        println!("Settings dir does not exist");
+    }
+
+    if let Err(error) = open::that(app_config_dir) {
+        println!("Error opening settings dir: {:?}", error);
+    }
+}
+
+const CONFIRM_CHARS: [&str; 7] = [" ", ".", ";", "!", "?", ":", ","];
+
+fn default_settings() -> AppSettings {
+    AppSettings {
         trigger: Trigger {
             string: "'".to_string(),
         },
+        confirm: Confirm {
+            chars: CONFIRM_CHARS.iter().map(|&s| s.to_string()).collect(),
+            key_enter: true,
+            key_right_arrow: true,
+            append: true,
+        },
         expansions: vec![],
-    };
+    }
+}
+
+fn main() {
+    let default_app_settings = default_settings();
 
     let initial_active_window = get_active_window().unwrap();
 
@@ -105,7 +147,12 @@ fn main() {
         })
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_process::init())
-        .invoke_handler(tauri::generate_handler![get_settings, set_settings])
+        .invoke_handler(tauri::generate_handler![
+            get_settings,
+            set_settings,
+            get_default_settings,
+            open_settings_dir
+        ])
         .setup(|app| {
             load_settings(app.app_handle());
 
@@ -117,8 +164,6 @@ fn main() {
 
             let mut enigo = Enigo::new(&Settings::default()).unwrap();
             enigo.set_delay(0);
-
-            const SEQUENCE_END_CHARS: [&str; 7] = [" ", ".", ";", "!", "?", ":", ","];
 
             fn end_capturing(
                 current_sequence: &String,
@@ -213,12 +258,26 @@ fn main() {
                         if !is_capturing {
                             return;
                         }
+
+                        // Return if confirm via the pressed key is disabled.
+                        if (!app_settings.confirm.key_right_arrow
+                            && event.event_type == EventType::KeyPress(Key::RightArrow))
+                            || (!app_settings.confirm.key_enter
+                                && event.event_type == EventType::KeyPress(Key::Return))
+                        {
+                            return;
+                        }
+
                         end_capturing(
                             &current_sequence,
                             &app_settings.expansions,
                             &mut enigo,
                             "",
-                            event.event_type == EventType::KeyPress(Key::Return),
+                            if app_settings.confirm.append {
+                                event.event_type == EventType::KeyPress(Key::Return)
+                            } else {
+                                false
+                            },
                         );
                         is_capturing = false;
                         current_sequence = String::new();
@@ -261,13 +320,17 @@ fn main() {
 
                         if is_capturing {
                             // TODO: Make tab work? string == '\t'
-                            if SEQUENCE_END_CHARS.contains(&string.as_str()) {
+                            if app_settings.confirm.chars.contains(&string) {
                                 println!("End capturing, {}", current_sequence);
                                 end_capturing(
                                     &current_sequence,
                                     &app_settings.expansions,
                                     &mut enigo,
-                                    &string,
+                                    if app_settings.confirm.append {
+                                        &string
+                                    } else {
+                                        ""
+                                    },
                                     false,
                                 );
 
@@ -297,14 +360,21 @@ fn main() {
         .expect("error while running tauri application");
 }
 
+fn get_settings_directory_path(app: &tauri::AppHandle) -> std::path::PathBuf {
+    let app_config_dir = app.path().app_config_dir().unwrap();
+    app_config_dir
+}
+
+const SETTINGS_FILE_NAME: &str = "settings.json";
+
 fn load_settings(app: &tauri::AppHandle) {
     // Load settings
-    let app_config_dir = app.path().app_config_dir().unwrap();
+    let app_config_dir = get_settings_directory_path(app);
 
     if !app_config_dir.exists() {
         std::fs::create_dir_all(&app_config_dir).unwrap();
     }
-    let setting_file_path = app_config_dir.join("settings.json");
+    let setting_file_path = app_config_dir.join(SETTINGS_FILE_NAME);
 
     println!("Loading settings from: {:?}", setting_file_path);
 

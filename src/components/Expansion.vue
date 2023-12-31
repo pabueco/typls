@@ -66,7 +66,7 @@ const isEditing = ref(!expansion.value.abbr && !expansion.value.text);
       <UButton
         @click="isEditing = !isEditing"
         color="gray"
-        :icon="isEditing ? 'i-tabler-check' : 'i-tabler-pencil'"
+        :icon="isEditing ? 'i-tabler-pencil-off' : 'i-tabler-pencil'"
         variant="ghost"
       ></UButton>
     </div>
