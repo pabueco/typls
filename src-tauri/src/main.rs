@@ -166,7 +166,11 @@ fn main() {
             // let expansions = app_settings.expansions.clone();
 
             let mut enigo = Enigo::new(&Settings::default()).unwrap();
-            enigo.set_delay(0);
+
+            // Set minimal delay if on supported platform.
+            if cfg!(not(windows)) {
+                enigo.set_delay(0);
+            }
 
             fn end_capturing(
                 current_sequence: &String,
