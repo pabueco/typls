@@ -167,8 +167,9 @@ fn main() {
 
             let mut enigo = Enigo::new(&Settings::default()).unwrap();
 
-            // Set minimal delay if on supported platform.
-            if cfg!(not(windows)) {
+            // Set minimal delay if not on windows.
+            #[cfg(not(target_os = "windows"))]
+            {
                 enigo.set_delay(0);
             }
 
