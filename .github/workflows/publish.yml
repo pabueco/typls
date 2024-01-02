@@ -1,17 +1,17 @@
 name: "publish"
 
-# This will trigger the action on each push to the `main` branch.
+# Trigger action when a version tag (like v1.0.0 or v1.0.0-19) is pushed.
 on:
   push:
-    branches:
-      - main
+    tags:
+      - "v[0-9]+.*"
 
 jobs:
   publish-tauri:
     permissions:
       contents: write
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         platform: [macos-latest, ubuntu-22.04, windows-latest]
 
@@ -54,8 +54,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: app-v__VERSION__ # the action automatically replaces \_\_VERSION\_\_ with the app version
-          releaseName: "App v__VERSION__"
+          tagName: v__VERSION__ # the action automatically replaces \_\_VERSION\_\_ with the app version
+          releaseName: "v__VERSION__"
           releaseBody: "See the assets to download this version and install."
           releaseDraft: true
           prerelease: true
