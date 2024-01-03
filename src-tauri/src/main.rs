@@ -159,7 +159,7 @@ fn main() {
         }
     });
 
-    // Channel to communicate the captured sequence and trigger and expansion.
+    // Channel to communicate the captured sequence and possibly trigger an expansion.
     let (tx, rx) = std::sync::mpsc::channel::<CaptureSignal>();
 
     tauri::Builder::default()
