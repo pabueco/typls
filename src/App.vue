@@ -112,12 +112,6 @@ const addNewExpansion = (above = false) => {
     text: "",
   });
 };
-
-function dosome() {
-  setTimeout(() => {
-    invoke("do_something");
-  }, 3000);
-}
 </script>
 
 <template>
@@ -174,8 +168,6 @@ function dosome() {
         </UButton> -->
       </div>
     </div>
-
-    <UButton @click="dosome">Test</UButton>
 
     <div class="p-8 space-y-10">
       <div class="grid grid-cols-2 gap-6">
