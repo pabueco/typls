@@ -3,7 +3,7 @@
 
 use active_win_pos_rs::{get_active_window, ActiveWindow};
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
 use std::time::Duration;
 use tauri::Manager;
@@ -81,6 +81,24 @@ fn get_default_settings() -> Result<AppSettings, String> {
 }
 
 #[tauri::command]
+fn do_something() {
+    let mut enigo = Enigo::new(&Settings::default()).unwrap();
+
+    println!("Hello World!");
+
+    // print enigo
+    println!("{:?}", enigo);
+
+    for _ in 0..10 {
+        enigo.key(enigo::Key::Backspace, enigo::Direction::Click);
+    }
+
+    enigo
+        .text("Type less with typls -> https://typls.app")
+        .unwrap();
+}
+
+#[tauri::command]
 fn open_settings_dir(app: tauri::AppHandle) {
     let app_config_dir = get_settings_directory_path(&app);
 
@@ -115,6 +133,18 @@ fn default_settings() -> AppSettings {
     }
 }
 
+struct Signal {
+    sequence: String,
+    append: String,
+    append_enter: bool,
+}
+
+fn signal() -> &'static Mutex<Vec<Signal>> {
+    static SIGNAL: OnceLock<Mutex<Vec<Signal>>> = OnceLock::new();
+
+    SIGNAL.get_or_init(|| Mutex::new(Vec::new()))
+}
+
 fn main() {
     let default_app_settings = default_settings();
 
@@ -144,6 +174,13 @@ fn main() {
         }
     });
 
+    let mutex_fn = Arc::new(Mutex::new(|_new_signal: Signal| {
+        println!("Mutex fn");
+
+        let mut signal = signal().lock().unwrap();
+        signal.push(_new_signal);
+    }));
+
     tauri::Builder::default()
         .manage(AppState {
             settings: Mutex::new(default_app_settings),
@@ -154,7 +191,8 @@ fn main() {
             get_settings,
             set_settings,
             get_default_settings,
-            open_settings_dir
+            open_settings_dir,
+            do_something
         ])
         .setup(|app| {
             load_settings(app.app_handle());
@@ -165,203 +203,52 @@ fn main() {
             // let trigger_char = app_settings.trigger_char.clone();
             // let expansions = app_settings.expansions.clone();
 
-            let mut enigo = Enigo::new(&Settings::default()).unwrap();
+            let app_handle = app.app_handle().clone();
 
-            // Set minimal delay if not on windows.
-            #[cfg(not(target_os = "windows"))]
-            {
-                enigo.set_delay(0);
-            }
+            thread::spawn(move || loop {
+                thread::sleep(Duration::from_millis(10));
 
-            fn end_capturing(
-                current_sequence: &String,
-                expansions: &Vec<Expansion>,
-                enigo: &mut Enigo,
-                append: &str,
-                append_enter: bool,
-            ) {
-                println!("End capturing, {}", current_sequence);
+                let mut signal = signal().lock().unwrap();
 
-                let parts = current_sequence.split("|");
-                let abbr = parts.clone().next().unwrap();
-
-                // Find matching expansion
-                let matching_expansion = expansions.iter().find(|&e| e.abbr == abbr.to_string());
-
-                // Return if no matching expansion found.
-                if matching_expansion.is_none() {
-                    return;
+                if signal.is_empty() {
+                    // println!("No signal");
+                    continue;
                 }
 
-                let mut text = matching_expansion.unwrap().text.clone();
+                let signal_to_handle = signal.pop().unwrap();
 
-                let mut variable_map = HashMap::new();
-
-                for part in parts.skip(1) {
-                    let pair: Vec<&str> = part.split("=").collect();
-                    let (key, value) = if pair.len() == 2 {
-                        (pair[0], pair[1])
-                    } else {
-                        ("", pair[0])
-                    };
-                    variable_map.insert(key, value);
-
-                    if key.is_empty() {
-                        text = text.replacen("{}", value, 1);
-                    } else {
-                        text = text.replace(&format!("{{{}}}", key), value);
-                    }
-                }
-
-                println!("text: {}", text);
-
-                let char_count_to_remove =
-                    current_sequence.len() + append.len() + 1 + if append_enter { 1 } else { 0 };
-
-                // Undo captured sequence.
-                for _ in 0..char_count_to_remove {
-                    let r = enigo.key(enigo::Key::Backspace, enigo::Direction::Click);
-                    if r.is_err() {
-                        println!("Error: {:?}", r);
-                    }
-                }
-
-                let full_text = format!("{}{}", text, append);
-
-                // Wait for backspace to finish.
-                // TODO: Maybe make this depend on the length of the text?
-                std::thread::sleep(std::time::Duration::from_millis(
-                    (std::cmp::max(char_count_to_remove * 10 / 2, 50))
-                        .try_into()
-                        .unwrap(),
-                ));
-
-                println!("full_text: {}", full_text.as_str());
-
-                enigo.text(full_text.as_str()).unwrap();
-
-                if append_enter {
-                    enigo
-                        .key(enigo::Key::Return, enigo::Direction::Click)
-                        .unwrap();
-                }
-            }
-
-            let mut current_sequence = String::new();
-            let mut is_capturing = false;
-
-            let app_handle_ = app.app_handle().clone();
-
-            if let Err(error) = listen(move |event| {
-                let app_state = app_handle_.state::<AppState>();
+                let app_state = app_handle.state::<AppState>();
                 let app_settings = app_state.settings.lock().unwrap();
 
-                let mut return_early = false;
+                end_capturing(
+                    &signal_to_handle.sequence,
+                    &app_settings.expansions,
+                    &signal_to_handle.append,
+                    signal_to_handle.append_enter,
+                );
 
-                if app_settings.trigger.string.is_empty() {
-                    return;
-                }
+                // let mut enigo: Enigo = Enigo::new(&Settings::default()).unwrap();
+                // for _ in 0..10 {
+                //     enigo.key(enigo::Key::Backspace, enigo::Direction::Click);
+                // }
+                // enigo.text("Hello World!").unwrap();
 
-                match event.event_type {
-                    // Confirm capture without appending anything.
-                    EventType::KeyPress(Key::RightArrow) | EventType::KeyPress(Key::Return) => {
-                        if !is_capturing {
-                            return;
-                        }
+                println!("Got Signal");
+                *signal = vec![];
+            });
 
-                        // Return if confirm via the pressed key is disabled.
-                        if (!app_settings.confirm.key_right_arrow
-                            && event.event_type == EventType::KeyPress(Key::RightArrow))
-                            || (!app_settings.confirm.key_enter
-                                && event.event_type == EventType::KeyPress(Key::Return))
-                        {
-                            return;
-                        }
+            #[cfg(target_os = "windows")]
+            {
+                let app_handle_ = app.app_handle().clone();
 
-                        end_capturing(
-                            &current_sequence,
-                            &app_settings.expansions,
-                            &mut enigo,
-                            "",
-                            if app_settings.confirm.append {
-                                event.event_type == EventType::KeyPress(Key::Return)
-                            } else {
-                                false
-                            },
-                        );
-                        is_capturing = false;
-                        current_sequence = String::new();
-                        return_early = true;
-                    }
-                    // Cancel capture.
-                    EventType::KeyPress(Key::Escape) => {
-                        if !is_capturing {
-                            return;
-                        }
-                        is_capturing = false;
-                        current_sequence = String::new();
-                        return_early = true;
-                    }
-                    EventType::KeyPress(Key::Backspace) => {
-                        if !is_capturing {
-                            return;
-                        }
+                thread::spawn(move || {
+                    handle_input(&app_handle_, mutex_fn);
+                });
+            }
 
-                        if current_sequence.is_empty() {
-                            is_capturing = false;
-                        } else {
-                            current_sequence.pop();
-                        }
-
-                        return_early = true;
-                    }
-                    _ => (),
-                }
-
-                if return_early {
-                    return;
-                }
-
-                match event.name {
-                    Some(string) => {
-                        if string.is_empty() {
-                            return;
-                        }
-
-                        if is_capturing {
-                            // TODO: Make tab work? string == '\t'
-                            if app_settings.confirm.chars.contains(&string) {
-                                println!("End capturing, {}", current_sequence);
-                                end_capturing(
-                                    &current_sequence,
-                                    &app_settings.expansions,
-                                    &mut enigo,
-                                    if app_settings.confirm.append {
-                                        &string
-                                    } else {
-                                        ""
-                                    },
-                                    false,
-                                );
-
-                                is_capturing = false;
-                                current_sequence = String::new();
-                            } else {
-                                current_sequence.push_str(&string);
-                                println!("current_sequence: {}", current_sequence);
-                            }
-                        } else {
-                            if string == app_settings.trigger.string {
-                                println!("Start capturing");
-                                current_sequence = String::new();
-                                is_capturing = true;
-                            }
-                        }
-                    }
-                    None => (),
-                }
-            }) {
-                println!("Error: {:?}", error)
+            #[cfg(not(target_os = "windows"))]
+            {
+                handle_input(app.app_handle());
             }
 
             Ok(())
@@ -406,5 +293,221 @@ fn load_settings(app: &tauri::AppHandle) {
         let mut app_settings: std::sync::MutexGuard<'_, AppSettings> =
             app_state.settings.lock().unwrap();
         *app_settings = new_settings;
+    }
+}
+
+fn handle_input(app: &tauri::AppHandle, mutex_fn: Arc<Mutex<dyn FnMut(Signal) + Send>>) {
+    // let mut enigo = Enigo::new(&Settings::default()).unwrap();
+
+    // Set minimal delay if not on windows.
+    #[cfg(not(target_os = "windows"))]
+    {
+        enigo.set_delay(0);
+    }
+
+    let mut current_sequence = String::new();
+    let mut is_capturing = false;
+
+    let app_handle_ = app.app_handle().clone();
+
+    if let Err(error) = listen(move |event| {
+        let app_state = app_handle_.state::<AppState>();
+        let app_settings = app_state.settings.lock().unwrap();
+        let mut return_early = false;
+
+        if app_settings.trigger.string.is_empty() {
+            return;
+        }
+
+        match event.event_type {
+            // Confirm capture without appending anything.
+            EventType::KeyPress(Key::RightArrow) | EventType::KeyPress(Key::Return) => {
+                if !is_capturing {
+                    return;
+                }
+
+                // Return if confirm via the pressed key is disabled.
+                if (!app_settings.confirm.key_right_arrow
+                    && event.event_type == EventType::KeyPress(Key::RightArrow))
+                    || (!app_settings.confirm.key_enter
+                        && event.event_type == EventType::KeyPress(Key::Return))
+                {
+                    return;
+                }
+
+                // end_capturing(
+                //     &current_sequence,
+                //     &app_settings.expansions,
+                //     "",
+                //     if app_settings.confirm.append {
+                //         event.event_type == EventType::KeyPress(Key::Return)
+                //     } else {
+                //         false
+                //     },
+                // );
+                mutex_fn.lock().unwrap()(Signal {
+                    sequence: current_sequence.clone(),
+                    append: "".to_string(),
+                    append_enter: event.event_type == EventType::KeyPress(Key::Return),
+                });
+
+                is_capturing = false;
+                current_sequence = String::new();
+                return_early = true;
+            }
+            // Cancel capture.
+            EventType::KeyPress(Key::Escape) => {
+                if !is_capturing {
+                    return;
+                }
+                is_capturing = false;
+                current_sequence = String::new();
+                return_early = true;
+            }
+            EventType::KeyPress(Key::Backspace) => {
+                if !is_capturing {
+                    return;
+                }
+
+                if current_sequence.is_empty() {
+                    is_capturing = false;
+                } else {
+                    current_sequence.pop();
+                }
+
+                return_early = true;
+            }
+            _ => (),
+        }
+
+        if return_early {
+            return;
+        }
+
+        match event.name {
+            Some(string) => {
+                if string.is_empty() {
+                    return;
+                }
+
+                if is_capturing {
+                    // TODO: Make tab work? string == '\t'
+                    if app_settings.confirm.chars.contains(&string) {
+                        println!("End capturing, {}", current_sequence);
+                        // end_capturing(
+                        //     &current_sequence,
+                        //     &app_settings.expansions,
+                        //     if app_settings.confirm.append {
+                        //         &string
+                        //     } else {
+                        //         ""
+                        //     },
+                        //     false,
+                        // );
+                        mutex_fn.lock().unwrap()(Signal {
+                            sequence: current_sequence.clone(),
+                            append: if app_settings.confirm.append {
+                                string.clone()
+                            } else {
+                                "".to_string()
+                            },
+                            append_enter: false,
+                        });
+
+                        is_capturing = false;
+                        current_sequence = String::new();
+                    } else {
+                        current_sequence.push_str(&string);
+                        println!("current_sequence: {}", current_sequence);
+                    }
+                } else {
+                    if string == app_settings.trigger.string {
+                        println!("Start capturing");
+                        current_sequence = String::new();
+                        is_capturing = true;
+                    }
+                }
+            }
+            None => (),
+        }
+    }) {
+        println!("Error: {:?}", error)
+    }
+}
+
+fn end_capturing(
+    current_sequence: &String,
+    expansions: &Vec<Expansion>,
+    append: &str,
+    append_enter: bool,
+) {
+    println!("End capturing, {}", current_sequence);
+
+    let parts = current_sequence.split("|");
+    let abbr = parts.clone().next().unwrap();
+
+    // Find matching expansion
+    let matching_expansion = expansions.iter().find(|&e| e.abbr == abbr.to_string());
+
+    // Return if no matching expansion found.
+    if matching_expansion.is_none() {
+        return;
+    }
+
+    let mut text = matching_expansion.unwrap().text.clone();
+
+    let mut variable_map = HashMap::new();
+
+    for part in parts.skip(1) {
+        let pair: Vec<&str> = part.split("=").collect();
+        let (key, value) = if pair.len() == 2 {
+            (pair[0], pair[1])
+        } else {
+            ("", pair[0])
+        };
+        variable_map.insert(key, value);
+
+        if key.is_empty() {
+            text = text.replacen("{}", value, 1);
+        } else {
+            text = text.replace(&format!("{{{}}}", key), value);
+        }
+    }
+
+    println!("text: {}", text);
+
+    let mut enigo: Enigo = Enigo::new(&Settings::default()).unwrap();
+
+    let char_count_to_remove =
+        current_sequence.len() + append.len() + 1 + if append_enter { 1 } else { 0 };
+
+    // Undo captured sequence.
+    for _ in 0..char_count_to_remove {
+        println!("Backspace");
+        let r = enigo.key(enigo::Key::Backspace, enigo::Direction::Click);
+        if r.is_err() {
+            println!("Error: {:?}", r);
+        }
+        // rdev::simulate(&EventType::KeyPress(Key::Backspace)).unwrap();
+    }
+
+    let full_text = format!("{}{}", text, append);
+
+    // Wait for backspace to finish.
+    // TODO: Maybe make this depend on the length of the text?
+    std::thread::sleep(std::time::Duration::from_millis(
+        (std::cmp::max(char_count_to_remove * 10 / 2, 50))
+            .try_into()
+            .unwrap(),
+    ));
+
+    println!("full_text: {}", full_text.as_str());
+
+    enigo.text(full_text.as_str()).unwrap();
+
+    if append_enter {
+        enigo
+            .key(enigo::Key::Return, enigo::Direction::Click)
+            .unwrap();
     }
 }
