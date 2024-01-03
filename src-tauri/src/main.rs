@@ -3,7 +3,7 @@
 
 use active_win_pos_rs::{get_active_window, ActiveWindow};
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 use tauri::Manager;
@@ -44,12 +44,12 @@ struct Expansion {
 }
 
 struct AppState {
-    settings: Mutex<AppSettings>,
+    settings: Arc<std::sync::RwLock<AppSettings>>,
 }
 
 #[tauri::command]
 fn get_settings(state: tauri::State<'_, AppState>) -> Result<AppSettings, String> {
-    let app_settings = state.settings.lock().unwrap();
+    let app_settings = state.settings.read().unwrap();
     print!("get_settings: {:?}", app_settings);
     Ok(app_settings.clone())
 }
@@ -61,7 +61,7 @@ fn set_settings(
     settings: AppSettings,
 ) -> Result<(), String> {
     print!("save_settings: {:?}", settings);
-    let mut app_settings: std::sync::MutexGuard<'_, AppSettings> = state.settings.lock().unwrap();
+    let mut app_settings = state.settings.write().unwrap();
     *app_settings = settings;
 
     let app_config_dir = app.path().app_config_dir().unwrap();
@@ -81,24 +81,6 @@ fn get_default_settings() -> Result<AppSettings, String> {
 }
 
 #[tauri::command]
-fn do_something() {
-    let mut enigo = Enigo::new(&Settings::default()).unwrap();
-
-    println!("Hello World!");
-
-    // print enigo
-    println!("{:?}", enigo);
-
-    for _ in 0..10 {
-        enigo.key(enigo::Key::Backspace, enigo::Direction::Click);
-    }
-
-    enigo
-        .text("Type less with typls -> https://typls.app")
-        .unwrap();
-}
-
-#[tauri::command]
 fn open_settings_dir(app: tauri::AppHandle) {
     let app_config_dir = get_settings_directory_path(&app);
 
@@ -113,7 +95,7 @@ fn open_settings_dir(app: tauri::AppHandle) {
     }
 }
 
-const CONFIRM_CHARS: [&str; 7] = [" ", ".", ";", "!", "?", ":", ","];
+const DEFAULT_CONFIRM_CHARS: [&str; 7] = [" ", ".", ";", "!", "?", ":", ","];
 
 fn default_settings() -> AppSettings {
     AppSettings {
@@ -121,7 +103,10 @@ fn default_settings() -> AppSettings {
             string: "'".to_string(),
         },
         confirm: Confirm {
-            chars: CONFIRM_CHARS.iter().map(|&s| s.to_string()).collect(),
+            chars: DEFAULT_CONFIRM_CHARS
+                .iter()
+                .map(|&s| s.to_string())
+                .collect(),
             key_enter: true,
             key_right_arrow: true,
             append: true,
@@ -133,17 +118,19 @@ fn default_settings() -> AppSettings {
     }
 }
 
-struct Signal {
+struct CaptureSignal {
     sequence: String,
     append: String,
     append_enter: bool,
 }
 
-fn signal() -> &'static Mutex<Vec<Signal>> {
-    static SIGNAL: OnceLock<Mutex<Vec<Signal>>> = OnceLock::new();
+// Global static value that can be shared between threads.
+// TODO: Maybe use `RwLock` here as well?
+// fn signal() -> &'static Mutex<Vec<Signal>> {
+//     static SIGNAL: OnceLock<Mutex<Vec<Signal>>> = OnceLock::new();
 
-    SIGNAL.get_or_init(|| Mutex::new(Vec::new()))
-}
+//     SIGNAL.get_or_init(|| Mutex::new(Vec::new()))
+// }
 
 fn main() {
     let default_app_settings = default_settings();
@@ -154,36 +141,30 @@ fn main() {
     let active_window: Arc<Mutex<ActiveWindow>> = Arc::new(Mutex::new(initial_active_window));
 
     let gv_clone = Arc::clone(&active_window);
-    thread::spawn(move || {
-        loop {
-            thread::sleep(Duration::from_millis(500));
-            match get_active_window() {
-                Ok(win) => {
-                    let mut global_var = gv_clone.lock().unwrap();
+    thread::spawn(move || loop {
+        thread::sleep(Duration::from_millis(500));
+        match get_active_window() {
+            Ok(win) => {
+                let mut global_var = gv_clone.lock().unwrap();
 
-                    if global_var.window_id != win.window_id {
-                        println!("Window changed to: {}", win.app_name);
-                    }
+                if global_var.window_id != win.window_id {
+                    println!("Window changed to: {}", win.app_name);
+                }
 
-                    *global_var = win; // Update the global variable
-                }
-                Err(_) => {
-                    println!("Error getting active window");
-                }
+                *global_var = win;
+            }
+            Err(_) => {
+                println!("Error getting active window");
             }
         }
     });
 
-    let mutex_fn = Arc::new(Mutex::new(|_new_signal: Signal| {
-        println!("Mutex fn");
-
-        let mut signal = signal().lock().unwrap();
-        signal.push(_new_signal);
-    }));
+    // Channel to communicate the captured sequence and trigger and expansion.
+    let (tx, rx) = std::sync::mpsc::channel::<CaptureSignal>();
 
     tauri::Builder::default()
         .manage(AppState {
-            settings: Mutex::new(default_app_settings),
+            settings: Arc::new(std::sync::RwLock::new(default_app_settings)),
         })
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_process::init())
@@ -192,57 +173,37 @@ fn main() {
             set_settings,
             get_default_settings,
             open_settings_dir,
-            do_something
         ])
         .setup(|app| {
             load_settings(app.app_handle());
 
-            // let app_state = app.state::<AppState>();
-            // let app_settings: std::sync::MutexGuard<'_, AppSettings> =
-            //     app_state.settings.lock().unwrap();
-            // let trigger_char = app_settings.trigger_char.clone();
-            // let expansions = app_settings.expansions.clone();
-
             let app_handle = app.app_handle().clone();
 
-            thread::spawn(move || loop {
-                thread::sleep(Duration::from_millis(10));
+            thread::spawn(move || {
+                for received in rx {
+                    println!("Got: {}", received.sequence);
 
-                let mut signal = signal().lock().unwrap();
+                    let app_state = app_handle.state::<AppState>();
+                    let app_settings = app_state.settings.read().unwrap();
 
-                if signal.is_empty() {
-                    // println!("No signal");
-                    continue;
+                    end_capturing(
+                        &received.sequence,
+                        &app_settings.expansions,
+                        &received.append,
+                        received.append_enter,
+                    );
                 }
-
-                let signal_to_handle = signal.pop().unwrap();
-
-                let app_state = app_handle.state::<AppState>();
-                let app_settings = app_state.settings.lock().unwrap();
-
-                end_capturing(
-                    &signal_to_handle.sequence,
-                    &app_settings.expansions,
-                    &signal_to_handle.append,
-                    signal_to_handle.append_enter,
-                );
-
-                // let mut enigo: Enigo = Enigo::new(&Settings::default()).unwrap();
-                // for _ in 0..10 {
-                //     enigo.key(enigo::Key::Backspace, enigo::Direction::Click);
-                // }
-                // enigo.text("Hello World!").unwrap();
-
-                println!("Got Signal");
-                *signal = vec![];
             });
 
+            // Listen to input events needs to happen in another thread on windows,
+            // otherwise the app crashes on startup with no visible error, but
+            // due to a "access violation reading location" memory error.
             #[cfg(target_os = "windows")]
             {
                 let app_handle_ = app.app_handle().clone();
 
                 thread::spawn(move || {
-                    handle_input(&app_handle_, mutex_fn);
+                    handle_input(&app_handle_, tx);
                 });
             }
 
@@ -290,15 +251,12 @@ fn load_settings(app: &tauri::AppHandle) {
 
         // Write new settings into app state.
         let app_state = app.state::<AppState>();
-        let mut app_settings: std::sync::MutexGuard<'_, AppSettings> =
-            app_state.settings.lock().unwrap();
+        let mut app_settings = app_state.settings.write().unwrap();
         *app_settings = new_settings;
     }
 }
 
-fn handle_input(app: &tauri::AppHandle, mutex_fn: Arc<Mutex<dyn FnMut(Signal) + Send>>) {
-    // let mut enigo = Enigo::new(&Settings::default()).unwrap();
-
+fn handle_input(app: &tauri::AppHandle, tx: std::sync::mpsc::Sender<CaptureSignal>) {
     // Set minimal delay if not on windows.
     #[cfg(not(target_os = "windows"))]
     {
@@ -312,7 +270,7 @@ fn handle_input(app: &tauri::AppHandle, mutex_fn: Arc<Mutex<dyn FnMut(Signal) + 
 
     if let Err(error) = listen(move |event| {
         let app_state = app_handle_.state::<AppState>();
-        let app_settings = app_state.settings.lock().unwrap();
+        let app_settings = app_state.settings.read().unwrap();
         let mut return_early = false;
 
         if app_settings.trigger.string.is_empty() {
@@ -335,21 +293,12 @@ fn handle_input(app: &tauri::AppHandle, mutex_fn: Arc<Mutex<dyn FnMut(Signal) + 
                     return;
                 }
 
-                // end_capturing(
-                //     &current_sequence,
-                //     &app_settings.expansions,
-                //     "",
-                //     if app_settings.confirm.append {
-                //         event.event_type == EventType::KeyPress(Key::Return)
-                //     } else {
-                //         false
-                //     },
-                // );
-                mutex_fn.lock().unwrap()(Signal {
+                tx.send(CaptureSignal {
                     sequence: current_sequence.clone(),
                     append: "".to_string(),
                     append_enter: event.event_type == EventType::KeyPress(Key::Return),
-                });
+                })
+                .unwrap();
 
                 is_capturing = false;
                 current_sequence = String::new();
@@ -394,17 +343,11 @@ fn handle_input(app: &tauri::AppHandle, mutex_fn: Arc<Mutex<dyn FnMut(Signal) + 
                     // TODO: Make tab work? string == '\t'
                     if app_settings.confirm.chars.contains(&string) {
                         println!("End capturing, {}", current_sequence);
-                        // end_capturing(
-                        //     &current_sequence,
-                        //     &app_settings.expansions,
-                        //     if app_settings.confirm.append {
-                        //         &string
-                        //     } else {
-                        //         ""
-                        //     },
-                        //     false,
-                        // );
-                        mutex_fn.lock().unwrap()(Signal {
+
+                        // TODO: Maybe just call `end_capturing` directly?
+                        // This should be fine since the original reason for the channel was to get rid of the humongus lag.
+                        // But this was already fixed by using `RwLock` instead of `Mutex` for the app settings.
+                        tx.send(CaptureSignal {
                             sequence: current_sequence.clone(),
                             append: if app_settings.confirm.append {
                                 string.clone()
@@ -412,7 +355,8 @@ fn handle_input(app: &tauri::AppHandle, mutex_fn: Arc<Mutex<dyn FnMut(Signal) + 
                                 "".to_string()
                             },
                             append_enter: false,
-                        });
+                        })
+                        .unwrap();
 
                         is_capturing = false;
                         current_sequence = String::new();
@@ -474,8 +418,6 @@ fn end_capturing(
         }
     }
 
-    println!("text: {}", text);
-
     let mut enigo: Enigo = Enigo::new(&Settings::default()).unwrap();
 
     let char_count_to_remove =
@@ -488,21 +430,20 @@ fn end_capturing(
         if r.is_err() {
             println!("Error: {:?}", r);
         }
-        // rdev::simulate(&EventType::KeyPress(Key::Backspace)).unwrap();
+    }
+
+    // Wait for backspace to finish. This does not seem to be necessary on windows.
+    #[cfg(not(target_os = "windows"))]
+    {
+        let count = (std::cmp::max(char_count_to_remove * 10 / 2, 50))
+            .try_into()
+            .unwrap();
+
+        println!("Waiting for {} ms", count);
+        std::thread::sleep(std::time::Duration::from_millis(count));
     }
 
     let full_text = format!("{}{}", text, append);
-
-    // Wait for backspace to finish.
-    // TODO: Maybe make this depend on the length of the text?
-    std::thread::sleep(std::time::Duration::from_millis(
-        (std::cmp::max(char_count_to_remove * 10 / 2, 50))
-            .try_into()
-            .unwrap(),
-    ));
-
-    println!("full_text: {}", full_text.as_str());
-
     enigo.text(full_text.as_str()).unwrap();
 
     if append_enter {
