@@ -209,7 +209,7 @@ fn main() {
 
             #[cfg(not(target_os = "windows"))]
             {
-                handle_input(app.app_handle());
+                handle_input(app.app_handle(), tx);
             }
 
             Ok(())
@@ -257,12 +257,6 @@ fn load_settings(app: &tauri::AppHandle) {
 }
 
 fn handle_input(app: &tauri::AppHandle, tx: std::sync::mpsc::Sender<CaptureSignal>) {
-    // Set minimal delay if not on windows.
-    #[cfg(not(target_os = "windows"))]
-    {
-        enigo.set_delay(0);
-    }
-
     let mut current_sequence = String::new();
     let mut is_capturing = false;
 
@@ -419,6 +413,12 @@ fn end_capturing(
     }
 
     let mut enigo: Enigo = Enigo::new(&Settings::default()).unwrap();
+
+    // Set minimal delay if not on windows.
+    #[cfg(not(target_os = "windows"))]
+    {
+        enigo.set_delay(0);
+    }
 
     let char_count_to_remove =
         current_sequence.len() + append.len() + 1 + if append_enter { 1 } else { 0 };
