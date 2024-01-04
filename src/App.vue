@@ -132,7 +132,7 @@ const addNewExpansion = (above = false) => {
           />
         </UTooltip>
         <UButton
-          to="https://github.com/pabueco"
+          to="https://github.com/pabueco/typls"
           target="_blank"
           icon="i-tabler-brand-github"
           variant="ghost"
