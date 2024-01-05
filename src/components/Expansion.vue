@@ -5,6 +5,7 @@ const $props = defineProps<{
     text: string;
   };
   duplicate?: boolean;
+  invalidChars?: string[];
 }>();
 
 const emit = defineEmits<{
@@ -21,19 +22,36 @@ const emit = defineEmits<{
 const expansion = useVModel($props, "modelValue", emit);
 
 const isEditing = ref(!expansion.value.abbr && !expansion.value.text);
+
+const error = computed(() => {
+  if ($props.duplicate) return "Duplicate abbreviation";
+
+  if (
+    $props.invalidChars?.some((char) => expansion.value.abbr.includes(char))
+  ) {
+    return `Contains confirm characters (${$props.invalidChars.join("")})`;
+  }
+
+  return false;
+});
+
+const showAsEditing = computed(() => {
+  return isEditing.value || error.value;
+});
 </script>
 
 <template>
   <div class="flex gap-2">
     <div class="contents" @dblclick="isEditing = true">
       <div class="w-32">
-        <UFormGroup :error="duplicate ? 'Duplicate abbreviation' : false">
+        <UFormGroup :error="error">
           <UInput
             v-model="expansion.abbr"
             placeholder="Abbreviation"
+            autoresizse
             class="font-mono text-right"
-            :variant="isEditing ? 'outline' : 'none'"
-            :disabled="!isEditing"
+            :variant="showAsEditing ? 'outline' : 'none'"
+            :disabled="!showAsEditing"
             :ui="{ base: '!cursor-auto text-right' }"
             autofocus
           />

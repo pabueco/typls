@@ -122,7 +122,7 @@ const addNewExpansion = (above = false) => {
       class="sticky top-0 z-10 w-full bg-gray-950 border-b border-gray-700 grid grid-cols-3 items-center justify-between px-8 py-5"
     >
       <div class="flex gap-1">
-        <UTooltip text="Open settings directory">
+        <UTooltip text="Open config directory">
           <UButton
             icon="i-tabler-folder-cog"
             @click="openSettingsFolder"
@@ -170,88 +170,91 @@ const addNewExpansion = (above = false) => {
     </div>
 
     <div class="p-8 space-y-10">
-      <div class="grid grid-cols-2 gap-6">
-        <div>
-          <UFormGroup
-            label="Trigger"
-            :error="
-              isInvalid ? 'Cannot be empty or longer than one character.' : ''
-            "
-            help="The character that starts the capturing."
-          >
-            <UInput
-              v-model="settings.trigger.string"
-              placeholder="Character"
-              maxlength="1"
-              class="font-mono"
-              @click="(e: MouseEvent) => (e.target as HTMLInputElement).select()"
-            />
-          </UFormGroup>
-        </div>
-
-        <div class="">
-          <div class="flex items-start">
-            <div class="flex-1">
-              <UFormGroup
-                label="Confirmation"
-                :error="
-                  isInvalid
-                    ? 'Cannot be empty or longer than one character.'
-                    : ''
-                "
-                help="Characters expanding the captured text."
-              >
-                <UInput
-                  :model-value="settings.confirm.chars.join('')"
-                  @update:model-value="
-                    settings.confirm.chars = $event.split('')
-                  "
-                  placeholder="Character"
-                  class="font-mono"
-                />
-
-                <template #hint>
-                  <button
-                    @click="resetConfirmChars"
-                    class="text-xs hover:text-white transition"
-                  >
-                    Reset
-                  </button>
-                </template>
-              </UFormGroup>
-            </div>
-
-            <div class="flex mt-6 ml-2 gap-2">
-              <UTooltip text="Enter key">
-                <UButton
-                  icon="i-tabler-corner-down-left"
-                  @click="
-                    settings.confirm.keyEnter = !settings.confirm.keyEnter
-                  "
-                  :variant="settings.confirm.keyEnter ? 'soft' : 'ghost'"
-                  :color="settings.confirm.keyEnter ? 'primary' : 'gray'"
-                />
-              </UTooltip>
-              <UTooltip text="Right arrow key">
-                <UButton
-                  icon="i-tabler-arrow-right"
-                  @click="
-                    settings.confirm.keyRightArrow =
-                      !settings.confirm.keyRightArrow
-                  "
-                  :variant="settings.confirm.keyRightArrow ? 'soft' : 'ghost'"
-                  :color="settings.confirm.keyRightArrow ? 'primary' : 'gray'"
-                />
-              </UTooltip>
-            </div>
-          </div>
-          <div class="mt-3">
-            <UFormGroup>
-              <UCheckbox
-                v-model="settings.confirm.append"
-                label="Append the characters/keys to the expanded text."
+      <div>
+        <h5 class="font-bold text-xl mb-5">Settings</h5>
+        <div class="grid grid-cols-2 gap-6">
+          <div>
+            <UFormGroup
+              label="Trigger"
+              :error="
+                isInvalid ? 'Cannot be empty or longer than one character.' : ''
+              "
+              help="The character that starts the capturing."
+            >
+              <UInput
+                v-model="settings.trigger.string"
+                placeholder="Character"
+                maxlength="1"
+                class="font-mono"
+                @click="(e: MouseEvent) => (e.target as HTMLInputElement).select()"
               />
             </UFormGroup>
+          </div>
+
+          <div class="">
+            <div class="flex items-start">
+              <div class="flex-1">
+                <UFormGroup
+                  label="Confirmation"
+                  :error="
+                    isInvalid
+                      ? 'Cannot be empty or longer than one character.'
+                      : ''
+                  "
+                  help="Characters expanding the captured text."
+                >
+                  <UInput
+                    :model-value="settings.confirm.chars.join('')"
+                    @update:model-value="
+                      settings.confirm.chars = $event.split('')
+                    "
+                    placeholder="Character"
+                    class="font-mono"
+                  />
+
+                  <template #hint>
+                    <button
+                      @click="resetConfirmChars"
+                      class="text-xs hover:text-white transition"
+                    >
+                      Reset
+                    </button>
+                  </template>
+                </UFormGroup>
+              </div>
+
+              <div class="flex mt-6 ml-2 gap-2">
+                <UTooltip text="Enter key">
+                  <UButton
+                    icon="i-tabler-corner-down-left"
+                    @click="
+                      settings.confirm.keyEnter = !settings.confirm.keyEnter
+                    "
+                    :variant="settings.confirm.keyEnter ? 'soft' : 'ghost'"
+                    :color="settings.confirm.keyEnter ? 'primary' : 'gray'"
+                  />
+                </UTooltip>
+                <UTooltip text="Right arrow key">
+                  <UButton
+                    icon="i-tabler-arrow-right"
+                    @click="
+                      settings.confirm.keyRightArrow =
+                        !settings.confirm.keyRightArrow
+                    "
+                    :variant="settings.confirm.keyRightArrow ? 'soft' : 'ghost'"
+                    :color="settings.confirm.keyRightArrow ? 'primary' : 'gray'"
+                  />
+                </UTooltip>
+              </div>
+            </div>
+            <div class="mt-3">
+              <UFormGroup>
+                <UCheckbox
+                  v-model="settings.confirm.append"
+                  label="Append the characters to the expanded text."
+                />
+              </UFormGroup>
+            </div>
           </div>
         </div>
       </div>
@@ -279,6 +282,7 @@ const addNewExpansion = (above = false) => {
             <Expansion
               v-model="settings.expansions[i]"
               :duplicate="duplicates.includes(expansion.abbr)"
+              :invalid-chars="settings.confirm.chars"
               @remove="settings.expansions.splice(i, 1)"
               class="mt-5 border-gray-800 pb-5"
               :class="{
