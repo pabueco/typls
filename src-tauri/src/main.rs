@@ -135,29 +135,28 @@ struct CaptureSignal {
 fn main() {
     let default_app_settings = default_settings();
 
-    let initial_active_window = get_active_window().unwrap();
+    // let initial_active_window = get_active_window().unwrap();
 
-    // Assuming the global variable is an integer
-    let active_window: Arc<Mutex<ActiveWindow>> = Arc::new(Mutex::new(initial_active_window));
+    // // Get current active window and poll for changes.
+    // let active_window: Arc<Mutex<ActiveWindow>> = Arc::new(Mutex::new(initial_active_window));
+    // let gv_clone = Arc::clone(&active_window);
+    // thread::spawn(move || loop {
+    //     thread::sleep(Duration::from_millis(500));
+    //     match get_active_window() {
+    //         Ok(win) => {
+    //             let mut global_var = gv_clone.lock().unwrap();
 
-    let gv_clone = Arc::clone(&active_window);
-    thread::spawn(move || loop {
-        thread::sleep(Duration::from_millis(500));
-        match get_active_window() {
-            Ok(win) => {
-                let mut global_var = gv_clone.lock().unwrap();
+    //             if global_var.window_id != win.window_id {
+    //                 println!("Active window: {:?}", win);
+    //             }
 
-                if global_var.window_id != win.window_id {
-                    println!("Window changed to: {}", win.app_name);
-                }
-
-                *global_var = win;
-            }
-            Err(_) => {
-                println!("Error getting active window");
-            }
-        }
-    });
+    //             *global_var = win;
+    //         }
+    //         Err(_) => {
+    //             println!("Error getting active window");
+    //         }
+    //     }
+    // });
 
     // Channel to communicate the captured sequence and possibly trigger an expansion.
     let (tx, rx) = std::sync::mpsc::channel::<CaptureSignal>();
