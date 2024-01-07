@@ -1,11 +1,11 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use active_win_pos_rs::{get_active_window, ActiveWindow};
-use std::collections::{HashMap, VecDeque};
-use std::sync::{Arc, Mutex};
+// use active_win_pos_rs::{get_active_window, ActiveWindow};
+// use std::time::Duration;
+use std::collections::HashMap;
+use std::sync::Arc;
 use std::thread;
-use std::time::Duration;
 use tauri::Manager;
 
 use enigo::{Enigo, Keyboard, Settings};
