@@ -23,6 +23,9 @@ type Settings = {
     keyRightArrow: boolean;
     append: boolean;
   };
+  variables: {
+    separator: string;
+  };
   expansions: {
     abbr: string;
     text: string;
@@ -33,7 +36,7 @@ const initialSettings = ref(await invoke<Settings>("get_settings"));
 const settings = ref<Settings>(cloneDeep(initialSettings.value));
 
 const haveSettingsChanged = ref(false);
-const hasJustSaved = autoResetRef(false, 2000);
+const hasJustSaved = autoResetRef(false, 3000);
 
 watch(
   settings,
@@ -69,24 +72,70 @@ const save = async (options: { showToast: boolean } = { showToast: false }) => {
   haveSettingsChanged.value = false;
 };
 
-const restart = async () => {
-  await relaunch();
-};
-
 const duplicates = computed(() => {
   const abbrs = settings.value.expansions.map((e) => e.abbr);
   return abbrs.filter((a, i) => abbrs.indexOf(a) !== i);
 });
 
 const isInvalid = computed(() => {
-  return (
-    settings.value.trigger.string === "" ||
-    settings.value.trigger.string.length > 1 ||
-    duplicates.value.length > 0 ||
-    settings.value.expansions
-      .filter((e) => e.abbr || e.text)
-      .some((e) => e.abbr === "")
+  return Object.values(settingsErrors.value).some((e) =>
+    Object.values(e).some((v) => v !== undefined)
   );
+});
+
+type SettingsErrors = {
+  trigger: {
+    string: string | undefined;
+  };
+  confirm: {
+    chars: string | undefined;
+  };
+  variables: {
+    separator: string | undefined;
+  };
+};
+const settingsErrors = computed<SettingsErrors>(() => {
+  return {
+    trigger: {
+      string:
+        settings.value.trigger.string === ""
+          ? "Cannot be empty."
+          : settings.value.trigger.string.length > 1
+          ? "Cannot be longer than one character."
+          : settings.value.confirm.chars.includes(settings.value.trigger.string)
+          ? "Cannot be the same as a confirmation character."
+          : settings.value.variables.separator === settings.value.trigger.string
+          ? "Cannot be the same as the variable separator character."
+          : undefined,
+    },
+    confirm: {
+      chars:
+        settings.value.confirm.chars.length === 0
+          ? "Cannot be empty."
+          : settings.value.confirm.chars.some((c) =>
+              [
+                settings.value.trigger.string,
+                settings.value.variables.separator,
+              ].includes(c)
+            )
+          ? "Cannot contain the trigger or variable separator characters."
+          : undefined,
+    },
+    variables: {
+      separator:
+        settings.value.variables.separator === ""
+          ? "Cannot be empty."
+          : settings.value.variables.separator.length > 1
+          ? "Cannot be longer than one character."
+          : settings.value.confirm.chars.includes(
+              settings.value.variables.separator
+            )
+          ? "Cannot be the same as a confirmation character."
+          : settings.value.trigger.string === settings.value.variables.separator
+          ? "Cannot be the same as the trigger character."
+          : undefined,
+    },
+  };
 });
 
 const searchQuery = ref("");
@@ -100,9 +149,9 @@ const expansionsFiltered = computed(() => {
   });
 });
 
-const resetConfirmChars = async () => {
+const resetSettings = async () => {
   const defaultSettings = await invoke<Settings>("get_default_settings");
-  settings.value.confirm.chars = defaultSettings.confirm.chars;
+  settings.value = defaultSettings;
 };
 
 const openSettingsFolder = async () => {
@@ -242,50 +291,100 @@ const checkForAvailableUpdates = async (notifyWhenUpToDate = false) => {
             <span class="text-xs text-gray-300">Saved</span>
           </div>
         </Transition>
-        <!-- <UButton
-          @click="save({ showToast: true })"
-          color="primary"
-          variant="solid"
-          :disabled="!haveSettingsChanged || isInvalid"
-        >
-          Save
-        </UButton> -->
       </div>
     </div>
 
     <div class="p-8 space-y-10">
       <div>
-        <h5 class="font-bold text-xl mb-5">Settings</h5>
-        <div class="grid grid-cols-2 gap-6">
-          <div>
-            <UFormGroup
-              label="Trigger"
-              :error="
-                isInvalid ? 'Cannot be empty or longer than one character.' : ''
-              "
-              help="The character that starts the capturing."
-            >
-              <UInput
-                v-model="settings.trigger.string"
-                placeholder="Character"
-                maxlength="1"
-                class="font-mono"
-                @click="(e: MouseEvent) => (e.target as HTMLInputElement).select()"
+        <div class="flex mb-5 items-center justify-between">
+          <div class="flex items-center gap-3">
+            <h5 class="font-bold text-xl">Settings</h5>
+
+            <UTooltip text="Reset settings to default">
+              <UButton
+                icon="i-tabler-arrow-back-up"
+                @click="resetSettings"
+                variant="ghost"
+                color="gray"
+                size="sm"
               />
-            </UFormGroup>
+            </UTooltip>
           </div>
+
+          <div class="flex space-x-2 text-sm items-center">
+            <div class="text-gray-500">Example:</div>
+            <div
+              class="font-mono rounded bg-gray-800 px-1.5 py-0.5 text-gray-200 whitespace-pre"
+            >
+              {{ settings.trigger.string }}hi{{
+                settings.variables.separator
+              }}foo{{ settings.variables.separator }}name=bar{{
+                settings.confirm.chars[0]
+              }}
+            </div>
+          </div>
+        </div>
+
+        <div
+          class="grid gap-6"
+          :style="{
+            gridTemplateColumns: '1fr 1fr 300px',
+          }"
+        >
+          <UFormGroup
+            label="Trigger character"
+            :error="settingsErrors.trigger.string"
+          >
+            <UInput
+              v-model="settings.trigger.string"
+              placeholder="Character"
+              maxlength="1"
+              class="font-mono"
+              @click="(e: MouseEvent) => (e.target as HTMLInputElement).select()"
+            />
+
+            <template #hint>
+              <UTooltip :ui="{ base: '!h-auto' }">
+                <UIcon name="i-tabler-help" />
+
+                <template #text>
+                  Indicates the start of an <br />
+                  abbreviation when tryping.
+                </template>
+              </UTooltip>
+            </template>
+          </UFormGroup>
+
+          <UFormGroup
+            label="Variable separator"
+            :error="settingsErrors.variables.separator"
+          >
+            <UInput
+              v-model="settings.variables.separator"
+              placeholder="Character"
+              maxlength="1"
+              class="font-mono"
+              @click="(e: MouseEvent) => (e.target as HTMLInputElement).select()"
+            />
+
+            <template #hint>
+              <UTooltip :ui="{ base: '!h-auto' }">
+                <UIcon name="i-tabler-help" />
+
+                <template #text>
+                  Used for appending variables <br />
+                  to an abbreviation.
+                </template>
+              </UTooltip>
+            </template>
+          </UFormGroup>
 
           <div class="">
             <div class="flex items-start">
               <div class="flex-1">
                 <UFormGroup
-                  label="Confirmation"
-                  :error="
-                    isInvalid
-                      ? 'Cannot be empty or longer than one character.'
-                      : ''
-                  "
-                  help="Characters expanding the captured text."
+                  label="Confirmation characters & keys"
+                  :error="settingsErrors.confirm.chars"
                 >
                   <UInput
                     :model-value="settings.confirm.chars.join('')"
@@ -295,53 +394,63 @@ const checkForAvailableUpdates = async (notifyWhenUpToDate = false) => {
                     placeholder="Character"
                     class="font-mono"
                   />
-
-                  <template #hint>
-                    <button
-                      @click="resetConfirmChars"
-                      class="text-xs hover:text-white transition"
-                    >
-                      Reset
-                    </button>
-                  </template>
                 </UFormGroup>
               </div>
 
-              <div class="flex mt-6 ml-2 gap-2">
-                <UTooltip text="Enter key">
-                  <UButton
-                    icon="i-tabler-corner-down-left"
-                    @click="
-                      settings.confirm.keyEnter = !settings.confirm.keyEnter
-                    "
-                    :variant="settings.confirm.keyEnter ? 'soft' : 'ghost'"
-                    :color="settings.confirm.keyEnter ? 'primary' : 'gray'"
-                  />
-                </UTooltip>
-                <UTooltip text="Right arrow key">
-                  <UButton
-                    icon="i-tabler-arrow-right"
-                    @click="
-                      settings.confirm.keyRightArrow =
-                        !settings.confirm.keyRightArrow
-                    "
-                    :variant="settings.confirm.keyRightArrow ? 'soft' : 'ghost'"
-                    :color="settings.confirm.keyRightArrow ? 'primary' : 'gray'"
-                  />
-                </UTooltip>
+              <div class="ml-2">
+                <div class="flex justify-end">
+                  <UTooltip :ui="{ base: '!h-auto' }">
+                    <UIcon name="i-tabler-help" class="text-sm text-gray-400" />
+
+                    <template #text>
+                      Indicates that the typed <br />
+                      abbreviation should be expanded.
+                    </template>
+                  </UTooltip>
+                </div>
+
+                <div class="flex mt-2.5 gap-2">
+                  <UTooltip text="Enter key">
+                    <UButton
+                      icon="i-tabler-corner-down-left"
+                      @click="
+                        settings.confirm.keyEnter = !settings.confirm.keyEnter
+                      "
+                      :variant="settings.confirm.keyEnter ? 'soft' : 'ghost'"
+                      :color="settings.confirm.keyEnter ? 'primary' : 'gray'"
+                    />
+                  </UTooltip>
+                  <UTooltip text="Right arrow key">
+                    <UButton
+                      icon="i-tabler-arrow-right"
+                      @click="
+                        settings.confirm.keyRightArrow =
+                          !settings.confirm.keyRightArrow
+                      "
+                      :variant="
+                        settings.confirm.keyRightArrow ? 'soft' : 'ghost'
+                      "
+                      :color="
+                        settings.confirm.keyRightArrow ? 'primary' : 'gray'
+                      "
+                    />
+                  </UTooltip>
+                </div>
               </div>
             </div>
             <div class="mt-3">
               <UFormGroup>
                 <UCheckbox
                   v-model="settings.confirm.append"
-                  label="Append the characters to the expanded text."
+                  label="Append to the expanded text"
                 />
               </UFormGroup>
             </div>
           </div>
         </div>
       </div>
+
+      <div class="border-b border-gray-900"></div>
 
       <div class="space-y-6">
         <div class="flex justify-between items-center">

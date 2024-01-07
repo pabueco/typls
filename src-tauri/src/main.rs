@@ -16,24 +16,31 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 #[serde(rename_all = "camelCase")]
 struct AppSettings {
-    trigger: Trigger,
-    confirm: Confirm,
+    trigger: TriggerSettings,
+    confirm: ConfirmSettings,
+    variables: VariableSettings,
     expansions: Vec<Expansion>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 #[serde(rename_all = "camelCase")]
-struct Trigger {
+struct TriggerSettings {
     string: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 #[serde(rename_all = "camelCase")]
-struct Confirm {
+struct ConfirmSettings {
     chars: Vec<String>,
     key_enter: bool,
     key_right_arrow: bool,
     append: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+#[serde(rename_all = "camelCase")]
+struct VariableSettings {
+    separator: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
@@ -99,10 +106,10 @@ const DEFAULT_CONFIRM_CHARS: [&str; 7] = [" ", ".", ";", "!", "?", ":", ","];
 
 fn default_settings() -> AppSettings {
     AppSettings {
-        trigger: Trigger {
+        trigger: TriggerSettings {
             string: "'".to_string(),
         },
-        confirm: Confirm {
+        confirm: ConfirmSettings {
             chars: DEFAULT_CONFIRM_CHARS
                 .iter()
                 .map(|&s| s.to_string())
@@ -110,6 +117,9 @@ fn default_settings() -> AppSettings {
             key_enter: true,
             key_right_arrow: true,
             append: true,
+        },
+        variables: VariableSettings {
+            separator: "|".to_string(),
         },
         expansions: vec![Expansion {
             abbr: "typls".to_string(),
@@ -191,6 +201,7 @@ fn main() {
                         &app_settings.expansions,
                         &received.append,
                         received.append_enter,
+                        &app_settings.variables.separator,
                     );
                 }
             });
@@ -378,10 +389,11 @@ fn end_capturing(
     expansions: &Vec<Expansion>,
     append: &str,
     append_enter: bool,
+    variable_separator: &str,
 ) {
     println!("End capturing, {}", current_sequence);
 
-    let parts = current_sequence.split("|");
+    let parts = current_sequence.split(variable_separator);
 
     // Extract abbreviation (first element).
     let abbr = parts.clone().next().unwrap();
