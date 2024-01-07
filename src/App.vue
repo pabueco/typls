@@ -1,8 +1,11 @@
 <script lang="ts" setup>
-import { show } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { isEqual, cloneDeep } from "lodash-es";
+import {
+  check as checkForUpdates,
+  type Update,
+} from "@tauri-apps/plugin-updater";
 
 useHead({
   htmlAttrs: {
@@ -112,6 +115,73 @@ const addNewExpansion = (above = false) => {
     text: "",
   });
 };
+
+const availableUpdate = ref<Update | null>(null);
+const isInstallingUpdate = ref(false);
+
+const checkForAvailableUpdates = async (notifyWhenUpToDate = false) => {
+  let update: Update | null = null;
+
+  try {
+    update = await checkForUpdates();
+  } catch (e) {
+    console.error(e);
+    toast.add({
+      title: "Something went wrong",
+      description: `An error occurred while checking for updates. Please try again later.`,
+      icon: "i-tabler-alert-triangle",
+      color: "red",
+    });
+    return;
+  }
+
+  availableUpdate.value = update;
+
+  if (!update) {
+    if (notifyWhenUpToDate) {
+      toast.add({
+        title: "Up to date",
+        description: `You are running the latest version.`,
+        icon: "i-tabler-circle-check",
+      });
+    }
+
+    return;
+  }
+
+  toast.add({
+    title: "Update available",
+    description: `Version ${update.version} is available. You are currently running version ${update.currentVersion}.`,
+    icon: "i-tabler-info-circle",
+    timeout: 0,
+    actions: [
+      {
+        label: "Update now",
+        color: "primary",
+        async click() {
+          isInstallingUpdate.value = true;
+          await update?.downloadAndInstall();
+
+          toast.add({
+            title: "Update installed",
+            description: `Version ${update?.version} has been installed. Restart the app to apply the changes.`,
+            icon: "i-tabler-circle-check",
+            timeout: 0,
+            actions: [
+              {
+                label: "Restart now",
+                color: "primary",
+                async click() {
+                  await relaunch();
+                },
+              },
+            ],
+          });
+        },
+      },
+    ],
+  });
+};
 </script>
 
 <template>
@@ -131,14 +201,28 @@ const addNewExpansion = (above = false) => {
             size="sm"
           />
         </UTooltip>
-        <UButton
-          to="https://github.com/pabueco/typls"
-          target="_blank"
-          icon="i-tabler-brand-github"
-          variant="ghost"
-          color="gray"
-          size="sm"
-        />
+        <UTooltip text="Open GitHub repository">
+          <UButton
+            to="https://github.com/pabueco/typls"
+            target="_blank"
+            icon="i-tabler-brand-github"
+            variant="ghost"
+            color="gray"
+            size="sm"
+          />
+        </UTooltip>
+        <UTooltip text="Check for updates">
+          <UChip :show="!!availableUpdate">
+            <UButton
+              icon="i-tabler-cloud-search"
+              @click="checkForAvailableUpdates(true)"
+              variant="ghost"
+              color="gray"
+              size="sm"
+              :disabled="isInstallingUpdate"
+            />
+          </UChip>
+        </UTooltip>
       </div>
       <div class="flex items-center justify-center">
         <div class="font-bold text-xl font-mono">typls</div>

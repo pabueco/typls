@@ -20,6 +20,9 @@ dependencies:
   '@tauri-apps/plugin-shell':
     specifier: ^2.0.0-alpha.3
     version: 2.0.0-alpha.3
+  '@tauri-apps/plugin-updater':
+    specifier: 2.0.0-alpha.5
+    version: 2.0.0-alpha.5
   lodash-es:
     specifier: ^4.17.21
     version: 4.17.21
@@ -1915,6 +1918,12 @@ packages:
     resolution: {integrity: sha512-v4qLTE9DfzpYdcjZq3ASOC7gFtMtzIDWN5Bo2FheB+pHQvDRq8mrP8gTdkL4/9pQaOFlB0B+MKCwANYhD1jLEQ==}
     dependencies:
       '@tauri-apps/api': 2.0.0-alpha.11
+    dev: false
+
+  /@tauri-apps/plugin-updater@2.0.0-alpha.5:
+    resolution: {integrity: sha512-iowOKQ2QWXlmEtICzjbv9v5n2Idbasc0T2mKyHBQk4B9HcwRRV24sQiHyxAiWbApHkakZiZNUysK9JszcKIixQ==}
+    dependencies:
+      '@tauri-apps/api': 2.0.0-alpha.13
     dev: false
 
   /@trysound/sax@0.2.0:
