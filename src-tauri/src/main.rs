@@ -2,7 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use active_win_pos_rs::{get_active_window, ActiveWindow};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -381,20 +381,25 @@ fn end_capturing(
     println!("End capturing, {}", current_sequence);
 
     let parts = current_sequence.split("|");
+
+    // Extract abbreviation (first element).
     let abbr = parts.clone().next().unwrap();
 
-    // Find matching expansion
+    // Find matching expansion.
     let matching_expansion = expansions.iter().find(|&e| e.abbr == abbr.to_string());
 
-    // Return if no matching expansion found.
     if matching_expansion.is_none() {
         return;
     }
 
-    let mut text = matching_expansion.unwrap().text.clone();
+    // Parse variables in expansion text.
+    let mut variables = parse_variables(matching_expansion.unwrap());
+    variables.unnamed.reverse();
 
-    let mut variable_map = HashMap::new();
+    let mut params_unnamed: Vec<&str> = vec![];
+    let mut params_named: HashMap<String, &str> = HashMap::new();
 
+    // Extract parameters into named and unnamed.
     for part in parts.skip(1) {
         let pair: Vec<&str> = part.split("=").collect();
         let (key, value) = if pair.len() == 2 {
@@ -402,12 +407,56 @@ fn end_capturing(
         } else {
             ("", pair[0])
         };
-        variable_map.insert(key, value);
 
         if key.is_empty() {
-            text = text.replacen("{}", value, 1);
+            params_unnamed.push(value);
         } else {
-            text = text.replace(&format!("{{{}}}", key), value);
+            params_named.insert(key.to_string(), value);
+        }
+    }
+
+    // Reverse unnamed parameters to replace them in the correct order.
+    params_unnamed.reverse();
+
+    let mut text = matching_expansion.unwrap().text.clone();
+
+    // Replace unnamed variables ({}, {=default}) in text with provided or default values.
+    for variable in variables.unnamed.iter_mut() {
+        // Create replace pattern like {} or {=default} and replace first occurrence.
+        let pattern = if variable.default.is_empty() {
+            "{}".to_string()
+        } else {
+            format!("{{={}}}", variable.default)
+        };
+
+        match params_unnamed.pop() {
+            Some(value) => {
+                text = text.replacen(&pattern, value, 1);
+            }
+            None => {
+                // Replace with default value if no value was provided.
+                text = text.replacen(&pattern, &variable.default, 1);
+            }
+        }
+    }
+
+    // Replace named variables ({key}, {key=default}) in text with provided or default values.
+    for (key, variable) in variables.named.iter_mut() {
+        // Create replace pattern like {key} or {key=default} and replace first occurrence.
+        let pattern = if variable.default.is_empty() {
+            format!("{{{}}}", variable.name)
+        } else {
+            format!("{{{0}={1}}}", variable.name, variable.default)
+        };
+
+        match params_named.remove(key) {
+            Some(value) => {
+                text = text.replace(&pattern, value);
+            }
+            None => {
+                // Replace with default value if no value was provided.
+                text = text.replace(&pattern, &variable.default);
+            }
         }
     }
 
@@ -450,4 +499,61 @@ fn end_capturing(
             .key(enigo::Key::Return, enigo::Direction::Click)
             .unwrap();
     }
+}
+
+#[derive(Debug)]
+
+struct Variable {
+    name: String,
+    default: String,
+}
+
+#[derive(Debug)]
+struct ExpansionVariables {
+    named: HashMap<String, Variable>,
+    unnamed: Vec<Variable>,
+}
+
+fn parse_variables(expansion: &Expansion) -> ExpansionVariables {
+    let mut named = HashMap::new();
+    let mut unnamed = Vec::new();
+
+    let mut chars = expansion.text.chars();
+
+    while let Some(c) = chars.next() {
+        if c == '{' {
+            let mut name = String::new();
+            let mut default = String::new();
+
+            while let Some(c) = chars.next() {
+                if c == '}' {
+                    break;
+                }
+
+                if c == '=' {
+                    while let Some(c) = chars.next() {
+                        if c == '}' {
+                            break;
+                        }
+
+                        default.push(c);
+                    }
+                    break;
+                }
+
+                name.push(c);
+            }
+
+            if name.is_empty() {
+                unnamed.push(Variable {
+                    name: "".to_string(),
+                    default,
+                });
+            } else {
+                named.insert(name.clone(), Variable { name, default });
+            }
+        }
+    }
+
+    ExpansionVariables { named, unnamed }
 }
