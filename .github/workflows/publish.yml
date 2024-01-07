@@ -14,7 +14,14 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        platform: [macos-latest, ubuntu-22.04, windows-latest]
+        # platform: [macos-latest, ubuntu-22.04, windows-latest]
+
+        - platform: macos-latest
+          ARGS: --target universal-apple-darwin
+
+        - platform: ubuntu-22.04
+
+        - platform: windows-latest
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -48,6 +55,12 @@ jobs:
             librsvg2-dev \
             libxdo-dev
 
+      - name: install rust targets (macos only)
+        if: matrix.platform == 'macos-latest'
+        run: |
+          rustup target add aarch64-apple-darwin
+          rustup target add x86_64-apple-darwin
+
       - name: install frontend dependencies
         run: pnpm install # change this to npm or pnpm depending on which one you use
 
@@ -62,3 +75,4 @@ jobs:
           releaseBody: "See the assets to download this version and install."
           releaseDraft: true
           prerelease: true
+          args: ${{ matrix.ARGS }}
