@@ -123,7 +123,7 @@ fn default_settings() -> AppSettings {
         },
         expansions: vec![Expansion {
             abbr: "typls".to_string(),
-            text: "Type less with typls -> https://typls.app".to_string(),
+            text: "Type less with typls: https://typls.app".to_string(),
         }],
     }
 }

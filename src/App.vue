@@ -6,11 +6,17 @@ import {
   check as checkForUpdates,
   type Update,
 } from "@tauri-apps/plugin-updater";
+import { getVersion, getName } from "@tauri-apps/api/app";
 
 useHead({
   htmlAttrs: {
     class: "bg-gray-950 text-white",
   },
+});
+
+const metadata = ref({
+  name: await getName(),
+  version: await getVersion(),
 });
 
 type Settings = {
@@ -234,7 +240,7 @@ const checkForAvailableUpdates = async (notifyWhenUpToDate = false) => {
 </script>
 
 <template>
-  <div>
+  <div class="flex flex-col min-h-screen">
     <UNotifications />
 
     <div
@@ -502,27 +508,28 @@ const checkForAvailableUpdates = async (notifyWhenUpToDate = false) => {
           description="Some of the settings are invalid. Please fix them before saving."
         />
       </div>
+    </div>
 
-      <!-- <div v-if="haveSettingsChanged">
-      <UAlert
-        icon="i-tabler-alert-triangle-filled"
-        color="amber"
-        variant="subtle"
-        title="Restart required to apply changes"
-      >
-        <template #description>
-          <p>
-            The changes will take effect after a restart. Click the restart
-            button to restart the app.
-          </p>
-          <div class="flex mt-3">
-            <UButton @click="restart" color="amber" variant="solid"
-              >Restart now</UButton
-            >
-          </div>
-        </template>
-      </UAlert>
-    </div> -->
+    <div class="mt-auto p-8 pt-0 text-xs text-gray-500">
+      <div class="border-b border-gray-900 mb-8"></div>
+
+      <div class="w-full flex justify-center gap-1 font-mono">
+        <span>{{ metadata.name }}</span>
+        <a
+          :href="`https://github.com/pabueco/typls/releases/v${metadata.version}`"
+          target="_blank"
+          class="hover:text-white transition"
+          >v{{ metadata.version }}</a
+        >
+        <span class="text-gray-700 mx-1 text-[10px]">•</span>
+        <span>by</span>
+        <a
+          href="https://pabue.co"
+          target="_blank"
+          class="hover:text-white transition"
+          >pabueco</a
+        >
+      </div>
     </div>
   </div>
 </template>
