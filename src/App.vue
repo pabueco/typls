@@ -165,7 +165,10 @@ const expansionsFiltered = computed(() => {
 
 const resetSettings = async () => {
   const defaultSettings = await invoke<Settings>("get_default_settings");
-  settings.value = defaultSettings;
+  settings.value = {
+    ...defaultSettings,
+    expansions: settings.value.expansions,
+  };
 };
 
 const openSettingsFolder = async () => {
