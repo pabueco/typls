@@ -7,6 +7,13 @@ import {
   type Update,
 } from "@tauri-apps/plugin-updater";
 import { getVersion, getName } from "@tauri-apps/api/app";
+import { open } from "@tauri-apps/plugin-shell";
+
+// The updater seems to break the app on MacOS and causes a virus alert on Windows, so it's disabled for now.
+// TODO: Enable updates when the updater is fixed.
+const AUTO_UPDATES_ENABLED = false;
+
+const GITHUB_REPO_URL = "https://github.com/pabueco/typls";
 
 useHead({
   htmlAttrs: {
@@ -204,6 +211,23 @@ const checkForAvailableUpdates = async (notifyWhenUpToDate = false) => {
     return;
   }
 
+  if (!AUTO_UPDATES_ENABLED) {
+    toast.add({
+      title: "Update available",
+      description: `Version ${update.version} is available. You are currently running version ${update.currentVersion}. Please download the latest version from the GitHub repository and install it manually.`,
+      icon: "i-tabler-info-circle",
+      timeout: 0,
+      actions: [
+        {
+          label: "View on GitHub",
+          color: "primary",
+          async click() {
+            open(`${GITHUB_REPO_URL}/releases/latest`);
+          },
+        },
+      ],
+    });
+  } else {
   toast.add({
     title: "Update available",
     description: `Version ${update.version} is available. You are currently running version ${update.currentVersion}.`,
@@ -236,6 +260,7 @@ const checkForAvailableUpdates = async (notifyWhenUpToDate = false) => {
       },
     ],
   });
+  }
 };
 </script>
 
@@ -516,7 +541,7 @@ const checkForAvailableUpdates = async (notifyWhenUpToDate = false) => {
       <div class="w-full flex justify-center gap-1 font-mono">
         <span>{{ metadata.name }}</span>
         <a
-          :href="`https://github.com/pabueco/typls/releases/v${metadata.version}`"
+          :href="`${GITHUB_REPO_URL}/releases/v${metadata.version}`"
           target="_blank"
           class="hover:text-white transition"
           >v{{ metadata.version }}</a
