@@ -35,6 +35,7 @@ type Settings = {
     keyEnter: boolean;
     keyRightArrow: boolean;
     append: boolean;
+    auto: boolean;
   };
   variables: {
     separator: string;
@@ -228,38 +229,38 @@ const checkForAvailableUpdates = async (notifyWhenUpToDate = false) => {
       ],
     });
   } else {
-  toast.add({
-    title: "Update available",
-    description: `Version ${update.version} is available. You are currently running version ${update.currentVersion}.`,
-    icon: "i-tabler-info-circle",
-    timeout: 0,
-    actions: [
-      {
-        label: "Update now",
-        color: "primary",
-        async click() {
-          isInstallingUpdate.value = true;
-          await update?.downloadAndInstall();
+    toast.add({
+      title: "Update available",
+      description: `Version ${update.version} is available. You are currently running version ${update.currentVersion}.`,
+      icon: "i-tabler-info-circle",
+      timeout: 0,
+      actions: [
+        {
+          label: "Update now",
+          color: "primary",
+          async click() {
+            isInstallingUpdate.value = true;
+            await update?.downloadAndInstall();
 
-          toast.add({
-            title: "Update installed",
-            description: `Version ${update?.version} has been installed. Restart the app to apply the changes.`,
-            icon: "i-tabler-circle-check",
-            timeout: 0,
-            actions: [
-              {
-                label: "Restart now",
-                color: "primary",
-                async click() {
-                  await relaunch();
+            toast.add({
+              title: "Update installed",
+              description: `Version ${update?.version} has been installed. Restart the app to apply the changes.`,
+              icon: "i-tabler-circle-check",
+              timeout: 0,
+              actions: [
+                {
+                  label: "Restart now",
+                  color: "primary",
+                  async click() {
+                    await relaunch();
+                  },
                 },
-              },
-            ],
-          });
+              ],
+            });
+          },
         },
-      },
-    ],
-  });
+      ],
+    });
   }
 };
 </script>
@@ -469,15 +470,21 @@ const checkForAvailableUpdates = async (notifyWhenUpToDate = false) => {
                 </div>
               </div>
             </div>
-            <div class="mt-3">
-              <UFormGroup>
-                <UCheckbox
-                  v-model="settings.confirm.append"
-                  label="Append to the expanded text"
-                />
-              </UFormGroup>
-            </div>
           </div>
+        </div>
+        <div class="mt-6 space-y-2">
+          <UFormGroup>
+            <UCheckbox
+              v-model="settings.confirm.append"
+              label="Append confirmation characters/keys to the expanded text."
+            />
+          </UFormGroup>
+          <UFormGroup>
+            <UCheckbox
+              v-model="settings.confirm.auto"
+              label="Automatically expand abbreviation while typing, when there are no variables in the text."
+            />
+          </UFormGroup>
         </div>
       </div>
 

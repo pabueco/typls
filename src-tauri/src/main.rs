@@ -35,6 +35,7 @@ struct ConfirmSettings {
     key_enter: bool,
     key_right_arrow: bool,
     append: bool,
+    auto: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
@@ -117,6 +118,7 @@ fn default_settings() -> AppSettings {
             key_enter: true,
             key_right_arrow: true,
             append: true,
+            auto: false,
         },
         variables: VariableSettings {
             separator: "|".to_string(),
@@ -276,6 +278,7 @@ fn handle_input(app: &tauri::AppHandle, tx: std::sync::mpsc::Sender<CaptureSigna
     if let Err(error) = listen(move |event| {
         let app_state = app_handle_.state::<AppState>();
         let app_settings = app_state.settings.read().unwrap();
+
         let mut return_early = false;
 
         if app_settings.trigger.string.is_empty() {
@@ -298,10 +301,12 @@ fn handle_input(app: &tauri::AppHandle, tx: std::sync::mpsc::Sender<CaptureSigna
                     return;
                 }
 
+                let is_return_key = event.event_type == EventType::KeyPress(Key::Return);
+
                 tx.send(CaptureSignal {
                     sequence: current_sequence.clone(),
                     append: "".to_string(),
-                    append_enter: event.event_type == EventType::KeyPress(Key::Return),
+                    append_enter: is_return_key,
                 })
                 .unwrap();
 
@@ -368,6 +373,42 @@ fn handle_input(app: &tauri::AppHandle, tx: std::sync::mpsc::Sender<CaptureSigna
                     } else {
                         current_sequence.push_str(&string);
                         println!("current_sequence: {}", current_sequence);
+
+                        if app_settings.confirm.auto {
+                            let matching_expansion = app_settings
+                                .expansions
+                                .iter()
+                                .find(|&e| e.abbr == current_sequence);
+
+                            let expansions_starting_with_sequence = app_settings
+                                .expansions
+                                .iter()
+                                .filter(|&e| e.abbr.starts_with(&current_sequence))
+                                .count();
+
+                            if matching_expansion.is_some()
+                                && expansions_starting_with_sequence == 1
+                            {
+                                let loose_variable_regex =
+                                    regex::Regex::new(r"\{[^\s}]*\}").unwrap();
+                                let matching_has_no_variables = !loose_variable_regex
+                                    .is_match(&matching_expansion.unwrap().text);
+
+                                if matching_has_no_variables {
+                                    println!("Auto confirm");
+                                    tx.send(CaptureSignal {
+                                        sequence: current_sequence.clone(),
+                                        append: "".to_string(),
+                                        append_enter: false,
+                                    })
+                                    .unwrap();
+
+                                    is_capturing = false;
+                                    current_sequence = String::new();
+                                    return;
+                                }
+                            }
+                        }
                     }
                 } else {
                     if string == app_settings.trigger.string {
@@ -539,7 +580,7 @@ fn parse_variables(expansion: &Expansion) -> ExpansionVariables {
             let mut default = String::new();
 
             while let Some(c) = chars.next() {
-                if c == '}' {
+                if c == '}' || c.is_whitespace() {
                     break;
                 }
 

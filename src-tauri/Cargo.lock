@@ -4251,6 +4251,7 @@ dependencies = [
  "enigo",
  "open 5.0.1",
  "rdev",
+ "regex",
  "serde",
  "serde_json",
  "tauri",
