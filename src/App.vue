@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { invoke } from "@tauri-apps/api/core";
 import { relaunch } from "@tauri-apps/plugin-process";
-import { isEqual, cloneDeep } from "lodash-es";
+import { isEqual, cloneDeep, uniqueId } from "lodash-es";
 import {
   check as checkForUpdates,
   type Update,
@@ -41,12 +41,23 @@ type Settings = {
     separator: string;
   };
   expansions: {
+    id?: string;
     abbr: string;
     text: string;
   }[];
 };
 
-const initialSettings = ref(await invoke<Settings>("get_settings"));
+const sourceSettings = await invoke<Settings>("get_settings");
+
+const initialSettings = ref<Settings>(
+  {
+    ...sourceSettings,
+    expansions: sourceSettings.expansions.map((e) => ({
+      ...e,
+      id: uniqueId('exp_'),
+    })),
+  }
+);
 const settings = ref<Settings>(cloneDeep(initialSettings.value));
 
 const haveSettingsChanged = ref(false);
@@ -77,7 +88,13 @@ watchDebounced(
 const toast = useToast();
 
 const save = async (options: { showToast: boolean } = { showToast: false }) => {
-  await invoke("set_settings", { settings: settings.value });
+  await invoke<Settings>("set_settings", { settings: {
+    ...settings.value,
+    expansions: settings.value.expansions.map((e) => ({
+      ...e,
+      id: undefined,
+    })),
+  } });
   if (options?.showToast) {
     toast.add({ title: "Saved", icon: "i-tabler-circle-check" });
   }
@@ -512,7 +529,7 @@ const checkForAvailableUpdates = async (notifyWhenUpToDate = false) => {
         </div>
 
         <div>
-          <div v-for="(expansion, i) of settings.expansions" :key="`${i}`">
+          <div v-for="(expansion, i) of settings.expansions" :key="expansion.id || i">
             <Expansion
               v-model="settings.expansions[i]"
               :duplicate="duplicates.includes(expansion.abbr)"
