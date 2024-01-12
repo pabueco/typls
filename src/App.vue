@@ -295,7 +295,7 @@ const checkForAvailableUpdates = async (notifyWhenUpToDate = false) => {
             size="sm"
           />
         </UTooltip>
-        <UTooltip text="Check for updates">
+        <UTooltip :text="AUTO_UPDATES_ENABLED ? 'Check for updates' : 'Updates are currently disabled'">
           <UChip :show="!!availableUpdate">
             <UButton
               icon="i-tabler-cloud-search"
@@ -303,7 +303,7 @@ const checkForAvailableUpdates = async (notifyWhenUpToDate = false) => {
               variant="ghost"
               color="gray"
               size="sm"
-              :disabled="isInstallingUpdate"
+              :disabled="!AUTO_UPDATES_ENABLED || isInstallingUpdate"
             />
           </UChip>
         </UTooltip>
