@@ -8,6 +8,7 @@ import {
 } from "@tauri-apps/plugin-updater";
 import { getVersion, getName } from "@tauri-apps/api/app";
 import { open } from "@tauri-apps/plugin-shell";
+import { useSortable } from '@vueuse/integrations/useSortable'
 
 // The updater seems to break the app on MacOS and causes a virus alert on Windows, so it's disabled for now.
 // TODO: Enable updates when the updater is fixed.
@@ -59,6 +60,14 @@ const initialSettings = ref<Settings>(
   }
 );
 const settings = ref<Settings>(cloneDeep(initialSettings.value));
+
+const expansionsListRef = ref<HTMLElement | null>(null)
+const sortable = useSortable(expansionsListRef, settings.value.expansions, {
+  handle: '[data-is-handle]',
+  animation: 200,
+  // Without this, every second drag attempt does not work on MacOS.
+  supportPointer: false,
+})
 
 const haveSettingsChanged = ref(false);
 const hasJustSaved = autoResetRef(false, 3000);
@@ -192,8 +201,9 @@ const openSettingsFolder = async () => {
   await invoke("open_settings_dir");
 };
 
-const addNewExpansion = (above = false) => {
-  settings.value.expansions[above ? "unshift" : "push"]({
+const addNewExpansion = (index = 0) => {
+  settings.value.expansions.splice(index, 0, {
+    id: uniqueId('exp_'),
     abbr: "",
     text: "",
   });
@@ -522,14 +532,14 @@ const checkForAvailableUpdates = async (notifyWhenUpToDate = false) => {
               variant="none"
               icon="i-tabler-search"
             />
-            <UButton @click="addNewExpansion(true)" variant="outline">
+            <UButton @click="addNewExpansion(0)" variant="outline">
               Add new
             </UButton>
           </div>
         </div>
 
-        <div>
-          <div v-for="(expansion, i) of settings.expansions" :key="expansion.id || i">
+        <div ref="expansionsListRef">
+          <div v-for="(expansion, i) of settings.expansions" :key="expansion.id || i" class="relative" >
             <Expansion
               v-model="settings.expansions[i]"
               :duplicate="duplicates.includes(expansion.abbr)"
@@ -541,11 +551,16 @@ const checkForAvailableUpdates = async (notifyWhenUpToDate = false) => {
                 'border-b': i !== settings.expansions.length - 1,
               }"
             />
+            <div v-if="i < settings.expansions.length - 1" class="absolute bottom-0 w-1/2 left-1/2 -translate-x-1/2 flex justify-center items-center translate-y-1/2 hover:opacity-100 opacity-0 z-10 group transition">
+              <div class="scale-50 group-hover:scale-100 transition">
+                <UButton size="2xs" color="gray" icon="i-tabler-plus" @click="addNewExpansion(i + 1)"></UButton>
+              </div>
+            </div>
           </div>
         </div>
 
         <div>
-          <UButton @click="addNewExpansion(false)" block color="gray">
+          <UButton @click="addNewExpansion(settings.expansions.length)" block color="gray">
             Add new expansion
           </UButton>
         </div>

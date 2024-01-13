@@ -41,7 +41,16 @@ const showAsEditing = computed(() => {
 </script>
 
 <template>
-  <div class="flex gap-2">
+  <div class="flex gap-2 group">
+    <div data-is-handle class="group-hover:opacity-100 opacity-0 transition block">
+      <UButton
+        color="gray"
+        icon="i-tabler-grip-vertical"
+        variant="link"
+        size="xs"
+        class="opacity-50 hover:opacity-100 active:opacity-100 !cursor-grab"
+      ></UButton>
+    </div>
     <div class="contents" @dblclick="isEditing = true">
       <div class="w-32">
         <UFormGroup :error="error">
