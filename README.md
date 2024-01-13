@@ -20,6 +20,8 @@ You define the word `hi` should expand to `Hi there, how are you?`. The trigger 
 
 So you type `'hi` and confirm it with a space, which would cause the typed sequence to be replaced with `Hi there, how are you?`.
 
+You can also enable the option to auto expand abbreviations as soon as one match is found, when they don't contain any variables.
+
 ### Variables
 
 The customize expansions, you can either use anonymous (`{}`) or named (`{name}`) variables.
