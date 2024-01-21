@@ -55,6 +55,8 @@ struct AppState {
     settings: Arc<std::sync::RwLock<AppSettings>>,
 }
 
+const SETTINGS_FILE_NAME: &str = "test.json";
+
 #[tauri::command]
 fn get_settings(state: tauri::State<'_, AppState>) -> Result<AppSettings, String> {
     let app_settings = state.settings.read().unwrap();
@@ -73,7 +75,7 @@ fn set_settings(
     *app_settings = settings;
 
     let app_config_dir = app.path().app_config_dir().unwrap();
-    let setting_file_path = app_config_dir.join("settings.json");
+    let setting_file_path = app_config_dir.join(SETTINGS_FILE_NAME);
 
     let default_settings_json: String = serde_json::to_string_pretty(&*app_settings).unwrap();
 
@@ -235,8 +237,6 @@ fn get_settings_directory_path(app: &tauri::AppHandle) -> std::path::PathBuf {
     let app_config_dir = app.path().app_config_dir().unwrap();
     app_config_dir
 }
-
-const SETTINGS_FILE_NAME: &str = "settings.json";
 
 fn load_settings(app: &tauri::AppHandle) {
     // Load settings
