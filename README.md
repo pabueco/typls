@@ -65,8 +65,8 @@ Download the file for your platform from the [latest release](https://github.com
 >
 > On MacOS, after attempting opening the installer for the first time you'll get a popup that the app cannot be opened because it isn't trusted. To continue, simply go to the "Privacy & Security" settings scroll down past the permission until you see "typls" mentioned and click "Open anyway".
 
-> [!IMPORTANT] MacOS Permissions
-> On MacOS the app needs the `Input Monitoring` and `Accessibility` permissions. This is needed, because it needs to read your key strokes and simulate key presses to expand the text.
+> [!IMPORTANT] 
+> MacOS Permissions. On MacOS the app needs the `Input Monitoring` and `Accessibility` permissions. This is needed, because it needs to read your key strokes and simulate key presses to expand the text.
 
 ## Roadmap & Ideas
 
