@@ -6,6 +6,7 @@ use enigo::{Enigo, Keyboard, Settings};
 use rdev::{listen, EventType, Key};
 
 use serde::{Deserialize, Serialize};
+use tauri::Manager;
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -154,7 +155,7 @@ pub fn run() {
             open_settings_dir,
         ])
         .setup(|app| {
-            load_settings(app.app_handle());
+            load_settings(&app.app_handle());
 
             let app_handle = app.app_handle().clone();
 
@@ -189,7 +190,7 @@ pub fn run() {
 
             #[cfg(not(target_os = "windows"))]
             {
-                handle_input(app.app_handle(), tx);
+                handle_input(&app.app_handle(), tx);
             }
 
             Ok(())
@@ -238,7 +239,7 @@ fn handle_input(app: &tauri::AppHandle, tx: std::sync::mpsc::Sender<CaptureSigna
     let mut current_sequence = String::new();
     let mut is_capturing = false;
 
-    let app_handle_ = app.app_handle().clone();
+    let app_handle_ = app.clone();
 
     if let Err(error) = listen(move |event| {
         let app_state = app_handle_.state::<AppState>();
