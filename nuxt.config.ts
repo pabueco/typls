@@ -5,10 +5,13 @@ export default defineNuxtConfig({
   ui: {
     icons: ["tabler"],
   },
+
   // (optional) Enable the Nuxt devtools
   devtools: { enabled: true },
+
   // Enable SSG
   ssr: false,
+
   vite: {
     // Better support for Tauri CLI output
     clearScreen: false,
@@ -30,5 +33,7 @@ export default defineNuxtConfig({
       },
     },
   },
+
   srcDir: "src",
+  compatibilityDate: "2025-03-21",
 });
