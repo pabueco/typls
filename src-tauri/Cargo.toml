@@ -9,25 +9,18 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "typls_new_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
 [build-dependencies]
-tauri-build = { version = "2.0.0-alpha", features = [] }
+tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2.0.0-alpha", features = [] }
-tauri-plugin-shell = "2.0.0-alpha"
-serde_json = "1.0"
-serde = "1.0"
-active-win-pos-rs = "0.8"
-# rdev = "0.5"
-rdev = { git = "https://github.com/Narsil/rdev.git", branch = "main" }
-enigo = "0.2.0-rc2"
-tauri-plugin-process = "2.0.0-alpha.6"
-open = "5"
-[target."cfg(not(any(target_os = \"android\", target_os = \"ios\")))".dependencies]
-tauri-plugin-updater = "2.0.0-alpha"
-regex = "1.10"
-
-[features]
-# this feature is used for production builds or when `devPath` points to the filesystem
-# DO NOT REMOVE!!
-custom-protocol = ["tauri/custom-protocol"]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
