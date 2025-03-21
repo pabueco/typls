@@ -176,22 +176,11 @@ pub fn run() {
                 }
             });
 
-            // Listen to input events needs to happen in another thread on windows,
-            // otherwise the app crashes on startup with no visible error, but
-            // due to a "access violation reading location" memory error.
-            #[cfg(target_os = "windows")]
-            {
-                let app_handle_ = app.app_handle().clone();
-
-                thread::spawn(move || {
-                    handle_input(&app_handle_, tx);
-                });
-            }
-
-            #[cfg(not(target_os = "windows"))]
-            {
-                handle_input(&app.app_handle(), tx);
-            }
+            // TODO: Test this on Windows
+            let app_handle_ = app.app_handle().clone();
+            thread::spawn(move || {
+                handle_input(&app_handle_, tx);
+            });
 
             Ok(())
         })
