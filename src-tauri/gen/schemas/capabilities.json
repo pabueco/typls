@@ -1,1 +1,0 @@
-{"default":{"identifier":"default","description":"Capability for the main window","local":true,"windows":["main"],"permissions":["core:default","opener:default","shell:default","process:default"]},"desktop-capability":{"identifier":"desktop-capability","description":"","local":true,"windows":["main"],"permissions":["updater:default"],"platforms":["macOS","windows","linux"]}}
