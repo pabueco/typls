@@ -1,56 +1,45 @@
 {
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "typls",
+  "version": "0.4.1",
+  "identifier": "com.typls.dev",
   "build": {
     "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:3000",
     "beforeBuildCommand": "pnpm generate",
-    "devPath": "http://localhost:3000",
-    "distDir": "../dist"
+    "frontendDist": "../dist"
   },
-  "package": {
-    "productName": "typls",
-    "version": "0.4.1"
-  },
-  "tauri": {
-    "bundle": {
-      "active": true,
-      "targets": "all",
-      "identifier": "com.typls.dev",
-      "icon": [
-        "icons/32x32.png",
-        "icons/128x128.png",
-        "icons/128x128@2x.png",
-        "icons/icon.icns",
-        "icons/icon.ico"
-      ],
-      "updater": {
-        "active": true,
-        "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDU0QTNFRjk2QzJFOTI4OUEKUldTYUtPbkNsdStqVktkOS9pT2NmaGVsZ1ZUTU9acWNXN2hCQ0QrTys0SEg4L09SWGRsVTNGeDAK",
-        "windows": {
-          "installMode": "passive"
-        }
-      }
-    },
-    "security": {
-      "csp": null
-    },
+  "app": {
     "windows": [
       {
-        "fullscreen": false,
-        "resizable": true,
         "title": "typls",
         "width": 800,
-        "height": 600,
-        "fileDropEnabled": false
+        "height": 600
       }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "createUpdaterArtifacts": true,
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
     ]
   },
   "plugins": {
-    "shell": {
-      "open": true
-    },
     "updater": {
-      "endpoints": [
-        "https://github.com/pabueco/typls/releases/latest/download/latest.json"
-      ]
+      "active": true,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDU0QTNFRjk2QzJFOTI4OUEKUldTYUtPbkNsdStqVktkOS9pT2NmaGVsZ1ZUTU9acWNXN2hCQ0QrTys0SEg4L09SWGRsVTNGeDAK",
+      "windows": {
+        "installMode": "passive"
+      }
     }
   }
 }
