@@ -1,13 +1,10 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   modules: ["@nuxt/ui", "@vueuse/nuxt"],
-
-  ui: {
-    icons: ["tabler"],
-  },
+  css: ["~/assets/main.css"],
 
   // (optional) Enable the Nuxt devtools
-  devtools: { enabled: true },
+  devtools: { enabled: false },
 
   // Enable SSG
   ssr: false,
@@ -36,4 +33,8 @@ export default defineNuxtConfig({
 
   srcDir: "src",
   compatibilityDate: "2025-03-21",
+
+  colorMode: {
+    preference: "dark",
+  },
 });
