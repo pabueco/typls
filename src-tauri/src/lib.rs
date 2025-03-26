@@ -176,11 +176,22 @@ pub fn run() {
                 }
             });
 
-            // TODO: Test this on Windows
-            let app_handle_ = app.app_handle().clone();
-            thread::spawn(move || {
-                handle_input(&app_handle_, tx);
-            });
+            // Listen to input events needs to happen in another thread on windows,
+            // otherwise the app crashes on startup with no visible error, but
+            // due to a "access violation reading location" memory error.
+            #[cfg(target_os = "windows")]
+            {
+                let app_handle_ = app.app_handle().clone();
+
+                thread::spawn(move || {
+                    handle_input(&app_handle_, tx);
+                });
+            }
+
+            #[cfg(not(target_os = "windows"))]
+            {
+                handle_input(app.app_handle(), tx);
+            }
 
             Ok(())
         })
@@ -469,10 +480,10 @@ fn end_capturing(
     let mut enigo: Enigo = Enigo::new(&Settings::default()).unwrap();
 
     // Set minimal delay if not on windows.
-    #[cfg(not(target_os = "windows"))]
-    {
-        enigo.set_delay(0);
-    }
+    // #[cfg(not(target_os = "windows"))]
+    // {
+    //     enigo.set_delay(0);
+    // }
 
     let char_count_to_remove =
         current_sequence.len() + append.len() + 1 + if append_enter { 1 } else { 0 };
