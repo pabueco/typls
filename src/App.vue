@@ -13,7 +13,7 @@ import { UFormField } from "#components";
 
 // The updater seems to break the app on MacOS and causes a virus alert on Windows, so it's disabled for now.
 // TODO: Enable updates when the updater is fixed.
-const AUTO_UPDATES_ENABLED = false;
+const AUTO_UPDATES_ENABLED = true;
 
 const GITHUB_REPO_URL = "https://github.com/pabueco/typls";
 
