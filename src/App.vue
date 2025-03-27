@@ -299,6 +299,10 @@ const checkForAvailableUpdates = async (notifyWhenUpToDate = false) => {
     });
   }
 };
+
+onMounted(() => {
+  useTimeoutFn(() => checkForAvailableUpdates(false), 3000);
+});
 </script>
 
 <template>
