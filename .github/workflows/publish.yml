@@ -1,14 +1,18 @@
 name: "publish"
-# Trigger action when a version tag (like v1.0.0 or v1.0.0-19) is pushed on main.
+
+# Trigger action when a version tag (like v1.0.0 or v1.0.0-19) is pushed.
 on:
   push:
-    branches:
-      - main
     tags:
       - "v[0-9]+.*"
 
 jobs:
   publish-tauri:
+    # Only run this job when the base branch is main.
+    # Note: This only works with lightweight tags, not annotated ones.
+    # Source: https://github.com/orgs/community/discussions/13226#discussioncomment-11958813
+    if: github.event.base_ref == 'refs/heads/main'
+
     environment: publish
     permissions:
       contents: write
