@@ -1,8 +1,9 @@
 name: "publish"
-
-# Trigger action when a version tag (like v1.0.0 or v1.0.0-19) is pushed.
+# Trigger action when a version tag (like v1.0.0 or v1.0.0-19) is pushed on main.
 on:
   push:
+    branches:
+      - main
     tags:
       - "v[0-9]+.*"
 

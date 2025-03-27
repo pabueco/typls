@@ -1,14 +1,14 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   modules: ["@nuxt/ui", "@vueuse/nuxt"],
+  css: ["~/assets/main.css"],
 
-  ui: {
-    icons: ["tabler"],
-  },
   // (optional) Enable the Nuxt devtools
-  devtools: { enabled: true },
+  devtools: { enabled: false },
+
   // Enable SSG
   ssr: false,
+
   vite: {
     // Better support for Tauri CLI output
     clearScreen: false,
@@ -30,5 +30,11 @@ export default defineNuxtConfig({
       },
     },
   },
+
   srcDir: "src",
+  compatibilityDate: "2025-03-21",
+
+  colorMode: {
+    preference: "dark",
+  },
 });

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { UFormField } from "#components";
+
 const $props = defineProps<{
   modelValue: {
     abbr: string;
@@ -42,18 +44,21 @@ const showAsEditing = computed(() => {
 
 <template>
   <div class="flex gap-2 group">
-    <div data-is-handle class="group-hover:opacity-100 opacity-0 transition block">
+    <div
+      data-is-handle
+      class="group-hover:opacity-100 opacity-0 transition flex items-center"
+    >
       <UButton
-        color="gray"
+        color="neutral"
         icon="i-tabler-grip-vertical"
-        variant="link"
+        variant="ghost"
         size="xs"
         class="opacity-50 hover:opacity-100 active:opacity-100 !cursor-grab"
       ></UButton>
     </div>
     <div class="contents" @dblclick="isEditing = true">
       <div class="w-32">
-        <UFormGroup :error="error">
+        <UFormField :error="error">
           <UInput
             v-model="expansion.abbr"
             placeholder="Abbreviation"
@@ -64,7 +69,7 @@ const showAsEditing = computed(() => {
             :ui="{ base: '!cursor-auto text-right' }"
             autofocus
           />
-        </UFormGroup>
+        </UFormField>
       </div>
       <div class="pt-1.5">
         <UIcon name="i-tabler-arrow-right" class="text-gray-500" />
@@ -77,14 +82,17 @@ const showAsEditing = computed(() => {
           placeholder="Expanded text"
           :variant="isEditing ? 'outline' : 'none'"
           :disabled="!isEditing"
-          :ui="{ base: '!cursor-auto' }"
+          :ui="{
+            base: `!cursor-auto ${isEditing ? '!resize-y' : '!resize-none'}`,
+          }"
+          class="w-full"
         />
       </div>
     </div>
     <div class="flex gap-2 items-start">
       <UButton
         @click="emit('remove')"
-        color="red"
+        color="error"
         icon="i-tabler-trash"
         :class="{
           invisible: !isEditing,
@@ -92,7 +100,7 @@ const showAsEditing = computed(() => {
       ></UButton>
       <UButton
         @click="isEditing = !isEditing"
-        color="gray"
+        color="neutral"
         :icon="isEditing ? 'i-tabler-pencil-off' : 'i-tabler-pencil'"
         variant="ghost"
       ></UButton>
