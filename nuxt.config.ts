@@ -33,8 +33,4 @@ export default defineNuxtConfig({
 
   srcDir: "src",
   compatibilityDate: "2025-03-21",
-
-  colorMode: {
-    preference: "dark",
-  },
 });

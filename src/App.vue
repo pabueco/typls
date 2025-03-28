@@ -19,7 +19,7 @@ const GITHUB_REPO_URL = "https://github.com/pabueco/typls";
 
 useHead({
   bodyAttrs: {
-    class: "bg-neutral-950 text-white",
+    class: "dark:bg-neutral-950 dark:text-white bg-neutral-50",
   },
 });
 
@@ -63,8 +63,9 @@ const settings = ref<Settings>(cloneDeep(initialSettings.value));
 const isDragging = ref(false);
 
 const expansionsListRef = useTemplateRef("expansionsListRef");
-const sortable = useSortable(expansionsListRef, settings.value.expansions, {
-  // handle: "[data-is-handle]",
+
+useSortable(expansionsListRef, settings.value.expansions, {
+  handle: "[data-is-handle]",
   animation: 200,
   // Without this, every second drag attempt does not work on MacOS.
   supportPointer: false,
@@ -309,7 +310,7 @@ onMounted(() => {
   <UApp>
     <div class="flex flex-col min-h-screen" spellcheck="false">
       <div
-        class="sticky top-0 z-10 w-full bg-neutral-950 border-b border-neutral-700 grid grid-cols-3 items-center justify-between px-8 py-5"
+        class="sticky top-0 z-10 w-full dark:bg-neutral-950 border-b dark:border-neutral-700 bg-neutral-50 border-neutral-200 grid grid-cols-3 items-center justify-between px-8 py-5"
       >
         <div class="flex gap-1">
           <UTooltip text="Open config directory">
@@ -360,12 +361,15 @@ onMounted(() => {
             enter-active-class="transition duration-200"
             leave-active-class="transition duration-200"
           >
-            <div v-if="hasJustSaved" class="flex items-center gap-2">
+            <div v-if="hasJustSaved" class="flex items-center gap-1.5">
               <UIcon
                 name="i-tabler-circle-check"
                 class="text-green-500 text-lg"
               />
-              <span class="text-xs text-neutral-300">Saved</span>
+              <span
+                class="text-xs bg:text-primary-300 text-primary-600 font-medium"
+                >Saved</span
+              >
             </div>
           </Transition>
         </div>
@@ -391,7 +395,7 @@ onMounted(() => {
             <div class="flex space-x-2 text-sm items-center">
               <div class="text-neutral-500">Example:</div>
               <div
-                class="font-mono rounded bg-neutral-800 px-1.5 py-0.5 text-neutral-200 whitespace-pre"
+                class="font-mono rounded dark:bg-neutral-800 bg-neutral-200/65 px-1.5 py-0.5 dark:text-neutral-200 text-black whitespace-pre"
               >
                 {{ settings.trigger.string }}hi{{
                   settings.variables.separator
@@ -538,7 +542,7 @@ onMounted(() => {
           </div>
         </div>
 
-        <div class="border-b border-neutral-900"></div>
+        <div class="border-b dark:border-neutral-900 border-neutral-200"></div>
 
         <div class="space-y-6">
           <div class="flex justify-between items-center">
@@ -573,7 +577,7 @@ onMounted(() => {
                 :duplicate="duplicates.includes(expansion.abbr)"
                 :invalid-chars="settings.confirm.chars"
                 @remove="settings.expansions.splice(i, 1)"
-                class="mt-5 border-neutral-800 pb-5"
+                class="mt-5 dark:border-neutral-900 border-neutral-200 pb-5"
                 :class="{
                   hidden: !expansionsFiltered.includes(expansion),
                   'border-b': i !== settings.expansions.length - 1,
@@ -618,23 +622,29 @@ onMounted(() => {
         </div>
       </div>
 
-      <div class="mt-auto p-8 pt-0 text-xs text-neutral-500">
-        <div class="border-b border-neutral-900 mb-8"></div>
+      <div
+        class="mt-auto p-8 pt-0 text-xs dark:text-neutral-500 text-neutral-400"
+      >
+        <div
+          class="border-b dark:border-neutral-900 border-neutral-300 mb-8"
+        ></div>
 
         <div class="w-full flex justify-center gap-1 font-mono">
           <span>{{ metadata.name }}</span>
           <a
             :href="`${GITHUB_REPO_URL}/releases/v${metadata.version}`"
             target="_blank"
-            class="hover:text-white transition"
+            class="dark:hover:text-white hover:text-black transition"
             >v{{ metadata.version }}</a
           >
-          <span class="text-neutral-700 mx-1 text-[10px]">•</span>
+          <span class="dark:text-neutral-700 text-neutral-300 mx-1 text-[10px]"
+            >•</span
+          >
           <span>by</span>
           <a
             href="https://pabue.co"
             target="_blank"
-            class="hover:text-white transition"
+            class="dark:hover:text-white hover:text-black transition"
             >pabueco</a
           >
         </div>
