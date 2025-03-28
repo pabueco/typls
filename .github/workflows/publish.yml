@@ -18,7 +18,7 @@ jobs:
     permissions:
       contents: write
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         # platform: [macos-latest, ubuntu-22.04, windows-latest]
 
