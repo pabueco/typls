@@ -60,12 +60,14 @@ But you can also pass values to customize some (or all variables): `'hi|Peter` -
 
 Download the file for your platform from the [latest release](https://github.com/pabueco/typls/releases/latest) and install it.
 
-> [!NOTE] 
-> Currently the application is not signed, so the operating systems don't trust it. You might have to jump through some hoops to actually install it.
+> [!NOTE]
+> Currently the application is not signed, so the operating systems don't trust it. You might have to jump through some hoops to actually use it.
 >
 > On MacOS, after attempting opening the installer for the first time you'll get a popup that the app cannot be opened because it isn't trusted. To continue, simply go to the "Privacy & Security" settings scroll down past the permission until you see "typls" mentioned and click "Open anyway".
+>
+> Alternatively you can run `xattr -dr com.apple.quarantine /Applications/typls.app/` in your terminal to do the same thing automatically and allow the app to be opened.
 
-> [!IMPORTANT] 
+> [!IMPORTANT]
 > MacOS Permissions: On MacOS the app needs the `Input Monitoring` and `Accessibility` permissions. This is needed, because it needs to read your key strokes and simulate key presses to expand the text.
 
 ## Roadmap & Ideas
