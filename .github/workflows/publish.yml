@@ -12,7 +12,7 @@ jobs:
     # Only run this job when the base branch is main.
     # Note: This only works with lightweight tags, not annotated ones.
     # Source: https://github.com/orgs/community/discussions/13226#discussioncomment-11958813
-    if: github.event.base_ref == 'refs/heads/main'
+    if: github.event.base_ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
 
     environment: publish
     permissions:
