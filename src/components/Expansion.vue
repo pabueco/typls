@@ -43,7 +43,7 @@ const showAsEditing = computed(() => {
 </script>
 
 <template>
-  <div class="flex gap-2 group">
+  <div class="flex gap-2 group select-none">
     <div
       data-is-handle
       class="group-hover:opacity-100 opacity-0 transition flex items-center"
@@ -56,8 +56,8 @@ const showAsEditing = computed(() => {
         class="opacity-50 hover:opacity-100 active:opacity-100 !cursor-grab"
       ></UButton>
     </div>
-    <div class="contents" @dblclick="isEditing = true">
-      <div class="w-32">
+    <div class="w-full flex gap-2" @dblclick="isEditing = true">
+      <div class="w-32" :class="{ 'pointer-events-none': !isEditing }">
         <UFormField :error="error">
           <UInput
             v-model="expansion.abbr"
@@ -74,7 +74,7 @@ const showAsEditing = computed(() => {
       <div class="pt-1.5">
         <UIcon name="i-tabler-arrow-right" class="text-gray-500" />
       </div>
-      <div class="flex-1">
+      <div class="flex-1" :class="{ 'pointer-events-none': !isEditing }">
         <UTextarea
           v-model="expansion.text"
           autoresize
