@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 use enigo::{Enigo, Keyboard, Settings};
@@ -8,6 +8,9 @@ use rdev::{listen, EventType, Key};
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
 
+use active_win_pos_rs::{get_active_window, ActiveWindow};
+use std::time::Duration;
+
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 #[serde(rename_all = "camelCase")]
 struct AppSettings {
@@ -15,6 +18,7 @@ struct AppSettings {
     confirm: ConfirmSettings,
     variables: VariableSettings,
     expansions: Vec<Expansion>,
+    groups: Option<Vec<Group>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
@@ -44,6 +48,15 @@ struct VariableSettings {
 struct Expansion {
     abbr: String,
     text: String,
+    group: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+#[serde(rename_all = "camelCase")]
+struct Group {
+    id: String,
+    name: String,
+    apps: Vec<String>,
 }
 
 struct AppState {
@@ -123,7 +136,9 @@ fn default_settings() -> AppSettings {
         expansions: vec![Expansion {
             abbr: "typls".to_string(),
             text: "Type less with typls: https://typls.app".to_string(),
+            group: None,
         }],
+        groups: Some(vec![]),
     }
 }
 
@@ -137,10 +152,34 @@ struct CaptureSignal {
 pub fn run() {
     let default_app_settings = default_settings();
 
+    let initial_active_window = get_active_window().unwrap();
+
+    // Get current active window and poll for changes.
+    let active_window: Arc<Mutex<ActiveWindow>> = Arc::new(Mutex::new(initial_active_window));
+    let gv_clone = Arc::clone(&active_window);
+    thread::spawn(move || loop {
+        thread::sleep(Duration::from_millis(500));
+        match get_active_window() {
+            Ok(win) => {
+                let mut global_var = gv_clone.lock().unwrap();
+
+                if global_var.window_id != win.window_id {
+                    println!("Active window: {:?}", win);
+                }
+
+                *global_var = win;
+            }
+            Err(_) => {
+                println!("Error getting active window");
+            }
+        }
+    });
+
     // Channel to communicate the captured sequence and possibly trigger an expansion.
     let (tx, rx) = std::sync::mpsc::channel::<CaptureSignal>();
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(AppState {
             settings: Arc::new(std::sync::RwLock::new(default_app_settings)),
@@ -172,6 +211,8 @@ pub fn run() {
                         &received.append,
                         received.append_enter,
                         &app_settings.variables.separator,
+                        &active_window,
+                        &app_settings,
                     );
                 }
             });
@@ -394,6 +435,8 @@ fn end_capturing(
     append: &str,
     append_enter: bool,
     variable_separator: &str,
+    active_window: &Arc<Mutex<ActiveWindow>>,
+    app_settings: &AppSettings,
 ) {
     println!("End capturing, {}", current_sequence);
 
@@ -402,15 +445,60 @@ fn end_capturing(
     // Extract abbreviation (first element).
     let abbr = parts.clone().next().unwrap();
 
-    // Find matching expansion.
-    let matching_expansion = expansions.iter().find(|&e| e.abbr == abbr.to_string());
+    // Find all matching expansions.
+    let mut matching_expansions = expansions
+        .iter()
+        .filter(|&e| e.abbr == abbr.to_string())
+        .collect::<Vec<_>>();
 
-    if matching_expansion.is_none() {
+    if matching_expansions.is_empty() {
         return;
     }
 
+    // Sort expansions so the ones assigned to a group are placed first.
+    // This is done so we always check constrained expansions first.
+    matching_expansions.sort_by_key(|e| e.group.is_some());
+
+    let mut chosen_expansion = None;
+
+    for exp in matching_expansions.iter() {
+        if let Some(group_id) = &exp.group {
+            let window_props = active_window.lock().unwrap();
+            let process_path = &window_props.process_path;
+
+            println!(
+                "Expansion has group {}, current window path is {}",
+                group_id,
+                process_path.display()
+            );
+
+            // find group in app_settings that has matching id
+            let group = app_settings
+                .groups
+                .as_ref()
+                .unwrap()
+                .iter()
+                .find(|&g| g.id == *group_id);
+
+            if group.is_none() {
+                continue;
+            }
+
+            if group
+                .unwrap()
+                .apps
+                .contains(&process_path.to_string_lossy().to_string())
+            {
+                chosen_expansion = Some(exp);
+                break;
+            }
+        } else {
+            chosen_expansion = Some(exp);
+        }
+    }
+
     // Parse variables in expansion text.
-    let mut variables = parse_variables(matching_expansion.unwrap());
+    let mut variables = parse_variables(chosen_expansion.unwrap());
     variables.unnamed.reverse();
 
     let mut params_unnamed: Vec<&str> = vec![];
@@ -435,7 +523,7 @@ fn end_capturing(
     // Reverse unnamed parameters to replace them in the correct order.
     params_unnamed.reverse();
 
-    let mut text = matching_expansion.unwrap().text.clone();
+    let mut text = chosen_expansion.unwrap().text.clone();
 
     // Replace unnamed variables ({}, {=default}) in text with provided or default values.
     for variable in variables.unnamed.iter_mut() {

@@ -28,27 +28,6 @@ const metadata = ref({
   version: await getVersion(),
 });
 
-type Settings = {
-  trigger: {
-    string: string;
-  };
-  confirm: {
-    chars: string[];
-    keyEnter: boolean;
-    keyRightArrow: boolean;
-    append: boolean;
-    auto: boolean;
-  };
-  variables: {
-    separator: string;
-  };
-  expansions: {
-    id?: string;
-    abbr: string;
-    text: string;
-  }[];
-};
-
 const sourceSettings = await invoke<Settings>("get_settings");
 
 const initialSettings = ref<Settings>({
@@ -120,8 +99,13 @@ const save = async (options: { showToast: boolean } = { showToast: false }) => {
 };
 
 const duplicates = computed(() => {
-  const abbrs = settings.value.expansions.map((e) => e.abbr);
-  return abbrs.filter((a, i) => abbrs.indexOf(a) !== i);
+  return settings.value.expansions.filter((e) => {
+    return (
+      settings.value.expansions.filter(
+        (e2) => e2.abbr === e.abbr && e2.group === e.group
+      ).length > 1
+    );
+  });
 });
 
 const isInvalid = computed(() => {
@@ -304,13 +288,29 @@ const checkForAvailableUpdates = async (notifyWhenUpToDate = false) => {
 onMounted(() => {
   useTimeoutFn(() => checkForAvailableUpdates(false), 3000);
 });
+
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import type { Group, Settings } from "./types";
+
+async function selectAppsForGroup(group: Group) {
+  const files = await openDialog({
+    multiple: true,
+
+    directory: false,
+  });
+  console.log(files);
+
+  if (!files) return;
+
+  group.apps.push(...(files.filter(Boolean) as string[]));
+}
 </script>
 
 <template>
   <UApp>
     <div class="flex flex-col min-h-screen" spellcheck="false">
       <div
-        class="sticky top-0 z-10 w-full dark:bg-neutral-950 border-b dark:border-neutral-700 bg-neutral-50 border-neutral-200 grid grid-cols-3 items-center justify-between px-8 py-5"
+        class="sticky top-0 z-30 w-full dark:bg-neutral-950 border-b dark:border-neutral-700 bg-neutral-50 border-neutral-200 grid grid-cols-3 items-center justify-between px-8 py-5"
       >
         <div class="flex gap-1">
           <UTooltip text="Open config directory">
@@ -574,9 +574,13 @@ onMounted(() => {
             >
               <Expansion
                 v-model="settings.expansions[i]"
-                :duplicate="duplicates.includes(expansion.abbr)"
+                :duplicate="duplicates.includes(settings.expansions[i])"
                 :invalid-chars="settings.confirm.chars"
+                :groups="settings.groups"
                 @remove="settings.expansions.splice(i, 1)"
+                @create:group="
+                  (g) => (settings.groups = [...(settings.groups ?? []), g])
+                "
                 class="mt-5 dark:border-neutral-900 border-neutral-200 pb-5"
                 :class="{
                   hidden: !expansionsFiltered.includes(expansion),
@@ -586,9 +590,11 @@ onMounted(() => {
               />
               <div
                 v-if="i < settings.expansions.length - 1"
-                class="absolute bottom-0 w-full left-1/2 -translate-x-1/2 flex justify-center items-center translate-y-1/2 hover:opacity-100 opacity-0 z-10 group transition"
+                class="absolute bottom-0 w-full left-1/2 -translate-x-1/2 flex justify-center items-center translate-y-1/2 hover:opacity-100 opacity-0 z-10 group transition hover:delay-300"
               >
-                <div class="scale-50 group-hover:scale-100 transition">
+                <div
+                  class="scale-50 group-hover:scale-100 transition group-hover:delay-300"
+                >
                   <UButton
                     size="xs"
                     color="primary"
@@ -597,6 +603,14 @@ onMounted(() => {
                   ></UButton>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <div>
+            <div v-for="group of settings.groups ?? []" :key="group.id">
+              {{ group }}
+
+              <UButton @click="selectAppsForGroup(group)">Select apps</UButton>
             </div>
           </div>
 

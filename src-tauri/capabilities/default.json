@@ -9,7 +9,6 @@
     "core:default",
     "opener:default",
     "shell:default",
-    "process:default",
-    "updater:default"
+    "process:default"
   ]
 }
