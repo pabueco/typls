@@ -19,6 +19,7 @@ struct AppSettings {
     variables: VariableSettings,
     expansions: Vec<Expansion>,
     groups: Option<Vec<Group>>,
+    active_group: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
@@ -63,7 +64,11 @@ struct AppState {
     settings: Arc<std::sync::RwLock<AppSettings>>,
 }
 
+#[cfg(dev)]
 const SETTINGS_FILE_NAME: &str = "test.json";
+
+#[cfg(not(dev))]
+const SETTINGS_FILE_NAME: &str = "settings.json";
 
 #[tauri::command]
 fn get_settings(state: tauri::State<'_, AppState>) -> Result<AppSettings, String> {
@@ -139,6 +144,7 @@ fn default_settings() -> AppSettings {
             group: None,
         }],
         groups: Some(vec![]),
+        active_group: None,
     }
 }
 
@@ -457,43 +463,65 @@ fn end_capturing(
 
     // Sort expansions so the ones assigned to a group are placed first.
     // This is done so we always check constrained expansions first.
-    matching_expansions.sort_by_key(|e| e.group.is_some());
+    matching_expansions.sort_by_key(|e| e.group.is_none());
 
     let mut chosen_expansion = None;
 
-    for exp in matching_expansions.iter() {
-        if let Some(group_id) = &exp.group {
-            let window_props = active_window.lock().unwrap();
-            let process_path = &window_props.process_path;
+    println!("active_group: {:?}", app_settings.active_group);
+    println!("matching_expansions : {:?}", matching_expansions);
 
-            println!(
-                "Expansion has group {}, current window path is {}",
-                group_id,
-                process_path.display()
-            );
+    // Select first expansion when active group is set
+    if let Some(active_group) = &app_settings.active_group {
+        println!("active_group: {:?}", active_group);
 
-            // find group in app_settings that has matching id
-            let group = app_settings
-                .groups
-                .as_ref()
-                .unwrap()
-                .iter()
-                .find(|&g| g.id == *group_id);
+        let active_group_expansions = matching_expansions
+            .iter()
+            .filter(|&e| e.group.is_none() || e.group == Some(active_group.clone()))
+            .collect::<Vec<_>>();
 
-            if group.is_none() {
-                continue;
-            }
+        println!("active_group_expansions: {:?}", active_group_expansions);
 
-            if group
-                .unwrap()
-                .apps
-                .contains(&process_path.to_string_lossy().to_string())
-            {
+        if !active_group_expansions.is_empty() {
+            chosen_expansion = Some(active_group_expansions[0]);
+        }
+    }
+
+    if chosen_expansion.is_none() {
+        // Find expansion by group matching the active window/app.
+        for exp in matching_expansions.iter() {
+            if let Some(group_id) = &exp.group {
+                let window_props = active_window.lock().unwrap();
+                let process_path = &window_props.process_path;
+
+                println!(
+                    "Expansion has group {}, current window path is {}",
+                    group_id,
+                    process_path.display()
+                );
+
+                // find group in app_settings that has matching id
+                let group = app_settings
+                    .groups
+                    .as_ref()
+                    .unwrap()
+                    .iter()
+                    .find(|&g| g.id == *group_id);
+
+                if group.is_none() {
+                    continue;
+                }
+
+                if group
+                    .unwrap()
+                    .apps
+                    .contains(&process_path.to_string_lossy().to_string())
+                {
+                    chosen_expansion = Some(exp);
+                    break;
+                }
+            } else {
                 chosen_expansion = Some(exp);
-                break;
             }
-        } else {
-            chosen_expansion = Some(exp);
         }
     }
 

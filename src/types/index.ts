@@ -2,7 +2,7 @@ export type Expansion = {
   id?: string;
   abbr: string;
   text: string;
-  group?: string;
+  group?: string | null;
 };
 
 export type Group = {
@@ -27,4 +27,5 @@ export type Settings = {
   };
   expansions: Expansion[];
   groups: Group[];
+  activeGroup: Group["id"];
 };

@@ -1,7 +1,8 @@
 <script lang="ts" setup>
 import { invoke } from "@tauri-apps/api/core";
 import { relaunch } from "@tauri-apps/plugin-process";
-import { isEqual, cloneDeep, uniqueId } from "lodash-es";
+import { confirm } from "@tauri-apps/plugin-dialog";
+import { isEqual, cloneDeep } from "es-toolkit";
 import {
   check as checkForUpdates,
   type Update,
@@ -10,10 +11,12 @@ import { getVersion, getName } from "@tauri-apps/api/app";
 import { open } from "@tauri-apps/plugin-shell";
 import { useSortable } from "@vueuse/integrations/useSortable";
 import { UFormField } from "#components";
+import { uniqueId } from "es-toolkit/compat";
+import type { Group, Settings } from "./types";
 
 // The updater seems to break the app on MacOS and causes a virus alert on Windows, so it's disabled for now.
 // TODO: Enable updates when the updater is fixed.
-const AUTO_UPDATES_ENABLED = true;
+const AUTO_UPDATES_ENABLED = false;
 
 const GITHUB_REPO_URL = "https://github.com/pabueco/typls";
 
@@ -200,6 +203,14 @@ const addNewExpansion = (index = 0) => {
   });
 };
 
+const addNewGroup = () => {
+  settings.value.groups.push({
+    id: crypto.randomUUID(),
+    name: "(empty)",
+    apps: [],
+  });
+};
+
 const availableUpdate = ref<Update | null>(null);
 const isInstallingUpdate = ref(false);
 
@@ -285,34 +296,35 @@ const checkForAvailableUpdates = async (notifyWhenUpToDate = false) => {
   }
 };
 
-onMounted(() => {
-  useTimeoutFn(() => checkForAvailableUpdates(false), 3000);
-});
+async function removeGroup(group: Group) {
+  if (
+    group.apps?.length &&
+    !(await confirm("Delete group and remove from expansions?", {
+      kind: "warning",
+    }))
+  )
+    return;
 
-import { open as openDialog } from "@tauri-apps/plugin-dialog";
-import type { Group, Settings } from "./types";
-
-async function selectAppsForGroup(group: Group) {
-  const files = await openDialog({
-    multiple: true,
-
-    directory: false,
+  settings.value.groups?.splice(settings.value.groups.indexOf(group), 1);
+  settings.value.expansions.forEach((e) => {
+    if (e.group === group.id) {
+      e.group = null;
+    }
   });
-  console.log(files);
-
-  if (!files) return;
-
-  group.apps.push(...(files.filter(Boolean) as string[]));
 }
+
+onMounted(() => {
+  // useTimeoutFn(() => checkForAvailableUpdates(false), 3000);
+});
 </script>
 
 <template>
   <UApp>
     <div class="flex flex-col min-h-screen" spellcheck="false">
       <div
-        class="sticky top-0 z-30 w-full dark:bg-neutral-950 border-b dark:border-neutral-700 bg-neutral-50 border-neutral-200 grid grid-cols-3 items-center justify-between px-8 py-5"
+        class="sticky top-0 z-30 w-full dark:bg-neutral-950 border-b dark:border-neutral-800 bg-neutral-50 border-neutral-200 grid grid-cols-3 items-center justify-between px-8 py-5"
       >
-        <div class="flex gap-1">
+        <div class="flex gap-1 items-center">
           <UTooltip text="Open config directory">
             <UButton
               icon="i-tabler-folder-cog"
@@ -350,28 +362,42 @@ async function selectAppsForGroup(group: Group) {
               />
             </UChip>
           </UTooltip>
+
+          <div class="ml-3">
+            <Transition
+              enter-from-class="opacity-0 -translate-x-2"
+              leave-to-class="opacity-0 -translate-x-2"
+              enter-active-class="transition duration-200"
+              leave-active-class="transition duration-200"
+            >
+              <div v-if="hasJustSaved" class="flex items-center gap-1.5">
+                <UIcon
+                  name="i-tabler-circle-check"
+                  class="text-green-500 text-lg"
+                />
+                <span
+                  class="text-xs bg:text-primary-300 text-primary-600 dark:text-primary-500 font-medium"
+                  >Saved</span
+                >
+              </div>
+            </Transition>
+          </div>
         </div>
         <div class="flex items-center justify-center">
           <div class="font-bold text-xl font-mono">typls</div>
         </div>
         <div class="flex items-center justify-end">
-          <Transition
-            enter-from-class="opacity-0 translate-x-2"
-            leave-to-class="opacity-0 translate-x-2"
-            enter-active-class="transition duration-200"
-            leave-active-class="transition duration-200"
-          >
-            <div v-if="hasJustSaved" class="flex items-center gap-1.5">
-              <UIcon
-                name="i-tabler-circle-check"
-                class="text-green-500 text-lg"
-              />
-              <span
-                class="text-xs bg:text-primary-300 text-primary-600 font-medium"
-                >Saved</span
-              >
-            </div>
-          </Transition>
+          <USelectMenu
+            v-model="settings.activeGroup"
+            value-key="id"
+            label-key="name"
+            create-item
+            :items="[{ name: 'Auto', id: null }, ...(settings.groups ?? [])]"
+            class="w-36"
+            placeholder="Auto"
+            variant="soft"
+            icon="i-tabler-stack"
+          />
         </div>
       </div>
 
@@ -546,7 +572,7 @@ async function selectAppsForGroup(group: Group) {
 
         <div class="space-y-6">
           <div class="flex justify-between items-center">
-            <h5 class="font-bold text-xl">Expansions</h5>
+            <h5 class="font-bold text-2xl">Expansions</h5>
 
             <div class="flex items-center gap-2">
               <UInput
@@ -606,14 +632,6 @@ async function selectAppsForGroup(group: Group) {
             </div>
           </div>
 
-          <div>
-            <div v-for="group of settings.groups ?? []" :key="group.id">
-              {{ group }}
-
-              <UButton @click="selectAppsForGroup(group)">Select apps</UButton>
-            </div>
-          </div>
-
           <div class="flex items-center justify-center">
             <UButton
               @click="addNewExpansion(settings.expansions.length)"
@@ -622,6 +640,35 @@ async function selectAppsForGroup(group: Group) {
             >
               Add new expansion
             </UButton>
+          </div>
+
+          <div class="flex items-center justify-between gap-4 mt-16">
+            <h5 class="font-bold text-2xl">Groups</h5>
+
+            <div>
+              <UButton
+                @click="addNewGroup()"
+                variant="outline"
+                icon="i-tabler-plus"
+                color="neutral"
+              >
+                Add new group
+              </UButton>
+            </div>
+          </div>
+
+          <div>
+            <div v-for="(group, i) of settings.groups ?? []" :key="group.id">
+              <Group
+                v-model="settings.groups[i]"
+                @remove="removeGroup(group)"
+              />
+
+              <div
+                v-if="i < settings.groups.length - 1"
+                class="dark:border-neutral-900 border-neutral-200 border my-5"
+              ></div>
+            </div>
           </div>
         </div>
 

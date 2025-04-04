@@ -10,13 +10,7 @@ const $props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (
-    event: "update:modelValue",
-    value: {
-      abbr: string;
-      text: string;
-    }
-  ): void;
+  (event: "update:modelValue", value: Partial<Expansion>): void;
   (event: "remove"): void;
   (event: "create:group", group: Group): void;
 }>();
@@ -55,7 +49,7 @@ function createGroupName(name: string) {
 </script>
 
 <template>
-  <div class="flex gap-2 group select-none">
+  <div class="flex gap-2 group select-none" @keyup.escape="isEditing = false">
     <div
       data-is-handle
       class="group-hover:opacity-100 opacity-0 transition flex items-center"
@@ -84,7 +78,7 @@ function createGroupName(name: string) {
         </UFormField>
       </div>
       <div class="pt-1.5">
-        <UIcon name="i-tabler-arrow-right" class="text-gray-500" />
+        <UIcon name="i-tabler-arrow-right" class="text-neutral-500" />
       </div>
       <div class="flex-1" :class="{ 'pointer-events-none': !isEditing }">
         <UTextarea
