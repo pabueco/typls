@@ -5,6 +5,7 @@ import { last } from "es-toolkit";
 
 const $props = defineProps<{
   modelValue: Partial<Group>;
+  platform: string;
 }>();
 
 const emit = defineEmits<{
@@ -13,6 +14,10 @@ const emit = defineEmits<{
 }>();
 
 const group = useVModel($props, "modelValue", emit);
+
+const filteredApps = computed(() => {
+  return $props.modelValue.apps?.filter((app) => app.os === $props.platform);
+});
 
 async function selectApps() {
   const files = await openDialog({
@@ -27,7 +32,12 @@ async function selectApps() {
     group.value.apps = [];
   }
 
-  group.value.apps.push(...(files.filter(Boolean) as string[]));
+  group.value.apps.push(
+    ...(files.filter(Boolean) as string[]).map((p) => ({
+      path: p,
+      os: $props.platform,
+    }))
+  );
 }
 
 const isEditing = ref(false);
@@ -54,10 +64,10 @@ function removeApp(app: Group["apps"][number]) {
     </div>
 
     <div class="flex flex-wrap gap-2">
-      <div v-for="app of group.apps">
-        <UTooltip :text="app">
+      <div v-for="app of filteredApps">
+        <UTooltip :text="app.path">
           <UBadge color="neutral" variant="subtle" size="md">
-            {{ getAppName(app) }}
+            {{ getAppName(app.path) }}
 
             <template v-if="isEditing" #trailing>
               <UIcon name="i-tabler-x" @click="removeApp(app)" />

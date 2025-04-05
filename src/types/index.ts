@@ -5,10 +5,15 @@ export type Expansion = {
   group?: string | null;
 };
 
+export type App = {
+  path: string;
+  os: string;
+};
+
 export type Group = {
   id: string;
   name: string;
-  apps: string[];
+  apps: App[];
 };
 
 export type Settings = {

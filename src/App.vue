@@ -13,6 +13,9 @@ import { useSortable } from "@vueuse/integrations/useSortable";
 import { UFormField } from "#components";
 import { uniqueId } from "es-toolkit/compat";
 import type { Group, Settings } from "./types";
+import { platform } from "@tauri-apps/plugin-os";
+
+const CURRENT_PLATFORM = platform();
 
 // The updater seems to break the app on MacOS and causes a virus alert on Windows, so it's disabled for now.
 // TODO: Enable updates when the updater is fixed.
@@ -661,6 +664,7 @@ onMounted(() => {
             <div v-for="(group, i) of settings.groups ?? []" :key="group.id">
               <Group
                 v-model="settings.groups[i]"
+                :platform="CURRENT_PLATFORM"
                 @remove="removeGroup(group)"
               />
 

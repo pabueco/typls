@@ -57,7 +57,14 @@ struct Expansion {
 struct Group {
     id: String,
     name: String,
-    apps: Vec<String>,
+    apps: Vec<App>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+#[serde(rename_all = "camelCase")]
+struct App {
+    path: String,
+    os: String,
 }
 
 struct AppState {
@@ -185,6 +192,7 @@ pub fn run() {
     let (tx, rx) = std::sync::mpsc::channel::<CaptureSignal>();
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(AppState {
@@ -511,11 +519,11 @@ fn end_capturing(
                     continue;
                 }
 
-                if group
-                    .unwrap()
-                    .apps
-                    .contains(&process_path.to_string_lossy().to_string())
-                {
+                let platform = tauri_plugin_os::platform();
+
+                if group.unwrap().apps.iter().any(|app| {
+                    app.os == platform && app.path == process_path.to_string_lossy().to_string()
+                }) {
                     chosen_expansion = Some(exp);
                     break;
                 }
