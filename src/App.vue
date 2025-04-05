@@ -1,7 +1,8 @@
 <script lang="ts" setup>
 import { invoke } from "@tauri-apps/api/core";
 import { relaunch } from "@tauri-apps/plugin-process";
-import { isEqual, cloneDeep, uniqueId } from "lodash-es";
+import { confirm } from "@tauri-apps/plugin-dialog";
+import { isEqual, cloneDeep } from "es-toolkit";
 import {
   check as checkForUpdates,
   type Update,
@@ -10,6 +11,10 @@ import { getVersion, getName } from "@tauri-apps/api/app";
 import { open } from "@tauri-apps/plugin-shell";
 import { useSortable } from "@vueuse/integrations/useSortable";
 import { UFormField } from "#components";
+import type { Group, Settings } from "./types";
+import { platform } from "@tauri-apps/plugin-os";
+
+const CURRENT_PLATFORM = platform();
 
 // The updater seems to break the app on MacOS and causes a virus alert on Windows, so it's disabled for now.
 // TODO: Enable updates when the updater is fixed.
@@ -28,34 +33,13 @@ const metadata = ref({
   version: await getVersion(),
 });
 
-type Settings = {
-  trigger: {
-    string: string;
-  };
-  confirm: {
-    chars: string[];
-    keyEnter: boolean;
-    keyRightArrow: boolean;
-    append: boolean;
-    auto: boolean;
-  };
-  variables: {
-    separator: string;
-  };
-  expansions: {
-    id?: string;
-    abbr: string;
-    text: string;
-  }[];
-};
-
 const sourceSettings = await invoke<Settings>("get_settings");
 
 const initialSettings = ref<Settings>({
   ...sourceSettings,
   expansions: sourceSettings.expansions.map((e) => ({
     ...e,
-    id: uniqueId("exp_"),
+    id: e.id || crypto.randomUUID(),
   })),
 });
 const settings = ref<Settings>(cloneDeep(initialSettings.value));
@@ -107,7 +91,7 @@ const save = async (options: { showToast: boolean } = { showToast: false }) => {
       ...settings.value,
       expansions: settings.value.expansions.map((e) => ({
         ...e,
-        id: undefined,
+        id: e.id || crypto.randomUUID(),
       })),
     },
   });
@@ -120,8 +104,13 @@ const save = async (options: { showToast: boolean } = { showToast: false }) => {
 };
 
 const duplicates = computed(() => {
-  const abbrs = settings.value.expansions.map((e) => e.abbr);
-  return abbrs.filter((a, i) => abbrs.indexOf(a) !== i);
+  return settings.value.expansions.filter((e) => {
+    return (
+      settings.value.expansions.filter(
+        (e2) => e2.abbr === e.abbr && e2.group === e.group
+      ).length > 1
+    );
+  });
 });
 
 const isInvalid = computed(() => {
@@ -210,9 +199,17 @@ const openSettingsFolder = async () => {
 
 const addNewExpansion = (index = 0) => {
   settings.value.expansions.splice(index, 0, {
-    id: uniqueId("exp_"),
+    id: crypto.randomUUID(),
     abbr: "",
     text: "",
+  });
+};
+
+const addNewGroup = () => {
+  settings.value.groups.push({
+    id: crypto.randomUUID(),
+    name: "(empty)",
+    apps: [],
   });
 };
 
@@ -301,6 +298,23 @@ const checkForAvailableUpdates = async (notifyWhenUpToDate = false) => {
   }
 };
 
+async function removeGroup(group: Group) {
+  if (
+    group.apps?.length &&
+    !(await confirm("Delete group and remove from expansions?", {
+      kind: "warning",
+    }))
+  )
+    return;
+
+  settings.value.groups?.splice(settings.value.groups.indexOf(group), 1);
+  settings.value.expansions.forEach((e) => {
+    if (e.group === group.id) {
+      e.group = null;
+    }
+  });
+}
+
 onMounted(() => {
   useTimeoutFn(() => checkForAvailableUpdates(false), 3000);
 });
@@ -310,9 +324,9 @@ onMounted(() => {
   <UApp>
     <div class="flex flex-col min-h-screen" spellcheck="false">
       <div
-        class="sticky top-0 z-10 w-full dark:bg-neutral-950 border-b dark:border-neutral-700 bg-neutral-50 border-neutral-200 grid grid-cols-3 items-center justify-between px-8 py-5"
+        class="sticky top-0 z-30 w-full dark:bg-neutral-950 border-b dark:border-neutral-800 bg-neutral-50 border-neutral-200 grid grid-cols-3 items-center justify-between px-8 py-5"
       >
-        <div class="flex gap-1">
+        <div class="flex gap-1 items-center">
           <UTooltip text="Open config directory">
             <UButton
               icon="i-tabler-folder-cog"
@@ -350,32 +364,46 @@ onMounted(() => {
               />
             </UChip>
           </UTooltip>
+
+          <div class="ml-3">
+            <Transition
+              enter-from-class="opacity-0 -translate-x-2"
+              leave-to-class="opacity-0 -translate-x-2"
+              enter-active-class="transition duration-200"
+              leave-active-class="transition duration-200"
+            >
+              <div v-if="hasJustSaved" class="flex items-center gap-1.5">
+                <UIcon
+                  name="i-tabler-circle-check"
+                  class="text-green-500 text-lg"
+                />
+                <span
+                  class="text-xs bg:text-primary-300 text-primary-600 dark:text-primary-500 font-medium"
+                  >Saved</span
+                >
+              </div>
+            </Transition>
+          </div>
         </div>
         <div class="flex items-center justify-center">
           <div class="font-bold text-xl font-mono">typls</div>
         </div>
         <div class="flex items-center justify-end">
-          <Transition
-            enter-from-class="opacity-0 translate-x-2"
-            leave-to-class="opacity-0 translate-x-2"
-            enter-active-class="transition duration-200"
-            leave-active-class="transition duration-200"
-          >
-            <div v-if="hasJustSaved" class="flex items-center gap-1.5">
-              <UIcon
-                name="i-tabler-circle-check"
-                class="text-green-500 text-lg"
-              />
-              <span
-                class="text-xs bg:text-primary-300 text-primary-600 font-medium"
-                >Saved</span
-              >
-            </div>
-          </Transition>
+          <USelectMenu
+            v-model="settings.activeGroup"
+            value-key="id"
+            label-key="name"
+            create-item
+            :items="[{ name: 'Auto', id: null }, ...(settings.groups ?? [])]"
+            class="w-36"
+            placeholder="Auto"
+            variant="soft"
+            icon="i-tabler-stack"
+          />
         </div>
       </div>
 
-      <div class="p-8 space-y-10">
+      <div class="p-8 space-y-10 mb-20">
         <div>
           <div class="flex mb-5 items-center justify-between">
             <div class="flex items-center gap-3">
@@ -546,7 +574,7 @@ onMounted(() => {
 
         <div class="space-y-6">
           <div class="flex justify-between items-center">
-            <h5 class="font-bold text-xl">Expansions</h5>
+            <h5 class="font-bold text-2xl">Expansions</h5>
 
             <div class="flex items-center gap-2">
               <UInput
@@ -574,9 +602,13 @@ onMounted(() => {
             >
               <Expansion
                 v-model="settings.expansions[i]"
-                :duplicate="duplicates.includes(expansion.abbr)"
+                :duplicate="duplicates.includes(settings.expansions[i])"
                 :invalid-chars="settings.confirm.chars"
+                :groups="settings.groups"
                 @remove="settings.expansions.splice(i, 1)"
+                @create:group="
+                  (g) => (settings.groups = [...(settings.groups ?? []), g])
+                "
                 class="mt-5 dark:border-neutral-900 border-neutral-200 pb-5"
                 :class="{
                   hidden: !expansionsFiltered.includes(expansion),
@@ -586,9 +618,11 @@ onMounted(() => {
               />
               <div
                 v-if="i < settings.expansions.length - 1"
-                class="absolute bottom-0 w-full left-1/2 -translate-x-1/2 flex justify-center items-center translate-y-1/2 hover:opacity-100 opacity-0 z-10 group transition"
+                class="absolute bottom-0 w-full left-1/2 -translate-x-1/2 flex justify-center items-center translate-y-1/2 hover:opacity-100 opacity-0 z-10 group transition hover:delay-300"
               >
-                <div class="scale-50 group-hover:scale-100 transition">
+                <div
+                  class="scale-50 group-hover:scale-100 transition group-hover:delay-300"
+                >
                   <UButton
                     size="xs"
                     color="primary"
@@ -608,6 +642,63 @@ onMounted(() => {
             >
               Add new expansion
             </UButton>
+          </div>
+
+          <div class="flex items-center justify-between gap-4 mt-16">
+            <div class="flex items-center">
+              <h5 class="font-bold text-2xl">Groups</h5>
+
+              <UTooltip
+                :ui="{ content: '!h-auto' }"
+                :content="{ side: 'top' }"
+                class="ml-3"
+              >
+                <UButton
+                  square
+                  icon="i-tabler-question-circle"
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                />
+
+                <template #content>
+                  Groups provide a way to scope expansions, so you can define
+                  multiple with the same abbreviation. <br />
+                  The used expansion is determined by your currently active
+                  group. <br />
+                  You can assign applications to a group to automatically switch
+                  to that group when the application has focus. <br />
+                  Alternatively you can 'permanently' switch the active group
+                  via the dropdown on the top right.
+                </template>
+              </UTooltip>
+            </div>
+
+            <div>
+              <UButton
+                @click="addNewGroup()"
+                variant="outline"
+                icon="i-tabler-plus"
+                color="neutral"
+              >
+                Add new group
+              </UButton>
+            </div>
+          </div>
+
+          <div>
+            <div v-for="(group, i) of settings.groups ?? []" :key="group.id">
+              <Group
+                v-model="settings.groups[i]"
+                :platform="CURRENT_PLATFORM"
+                @remove="removeGroup(group)"
+              />
+
+              <div
+                v-if="i < settings.groups.length - 1"
+                class="dark:border-neutral-900 border-neutral-200 border my-5"
+              ></div>
+            </div>
           </div>
         </div>
 

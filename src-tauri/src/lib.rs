@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 use enigo::{Enigo, Keyboard, Settings};
@@ -8,6 +8,11 @@ use rdev::{listen, EventType, Key};
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
 
+use active_win_pos_rs::{get_active_window, ActiveWindow};
+use std::time::Duration;
+
+use uuid::Uuid;
+
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 #[serde(rename_all = "camelCase")]
 struct AppSettings {
@@ -15,6 +20,8 @@ struct AppSettings {
     confirm: ConfirmSettings,
     variables: VariableSettings,
     expansions: Vec<Expansion>,
+    groups: Option<Vec<Group>>,
+    active_group: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
@@ -42,15 +49,41 @@ struct VariableSettings {
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 #[serde(rename_all = "camelCase")]
 struct Expansion {
+    #[serde(default = "generate_uuid")]
+    id: String,
     abbr: String,
     text: String,
+    group: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+#[serde(rename_all = "camelCase")]
+struct Group {
+    id: String,
+    name: String,
+    apps: Vec<App>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+#[serde(rename_all = "camelCase")]
+struct App {
+    path: String,
+    os: String,
 }
 
 struct AppState {
     settings: Arc<std::sync::RwLock<AppSettings>>,
 }
 
+#[cfg(dev)]
 const SETTINGS_FILE_NAME: &str = "test.json";
+
+#[cfg(not(dev))]
+const SETTINGS_FILE_NAME: &str = "settings.json";
+
+fn generate_uuid() -> String {
+    Uuid::new_v4().to_string()
+}
 
 #[tauri::command]
 fn get_settings(state: tauri::State<'_, AppState>) -> Result<AppSettings, String> {
@@ -121,9 +154,13 @@ fn default_settings() -> AppSettings {
             separator: "|".to_string(),
         },
         expansions: vec![Expansion {
+            id: "typls".to_string(),
             abbr: "typls".to_string(),
             text: "Type less with typls: https://typls.app".to_string(),
+            group: None,
         }],
+        groups: Some(vec![]),
+        active_group: None,
     }
 }
 
@@ -137,10 +174,30 @@ struct CaptureSignal {
 pub fn run() {
     let default_app_settings = default_settings();
 
+    let initial_active_window = get_active_window().unwrap();
+
+    // Get current active window and poll for changes.
+    let active_window: Arc<Mutex<ActiveWindow>> = Arc::new(Mutex::new(initial_active_window));
+    let gv_clone = Arc::clone(&active_window);
+    thread::spawn(move || loop {
+        thread::sleep(Duration::from_millis(500));
+        match get_active_window() {
+            Ok(win) => {
+                let mut global_var = gv_clone.lock().unwrap();
+                *global_var = win;
+            }
+            Err(_) => {
+                println!("Error getting active window");
+            }
+        }
+    });
+
     // Channel to communicate the captured sequence and possibly trigger an expansion.
     let (tx, rx) = std::sync::mpsc::channel::<CaptureSignal>();
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_os::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(AppState {
             settings: Arc::new(std::sync::RwLock::new(default_app_settings)),
@@ -161,8 +218,6 @@ pub fn run() {
 
             thread::spawn(move || {
                 for received in rx {
-                    println!("Got: {}", received.sequence);
-
                     let app_state = app_handle.state::<AppState>();
                     let app_settings = app_state.settings.read().unwrap();
 
@@ -172,6 +227,8 @@ pub fn run() {
                         &received.append,
                         received.append_enter,
                         &app_settings.variables.separator,
+                        &active_window,
+                        &app_settings,
                     );
                 }
             });
@@ -318,8 +375,6 @@ fn handle_input(app: &tauri::AppHandle, tx: std::sync::mpsc::Sender<CaptureSigna
                 if is_capturing {
                     // TODO: Make tab work? string == '\t'
                     if app_settings.confirm.chars.contains(&string) {
-                        println!("End capturing, {}", current_sequence);
-
                         tx.send(CaptureSignal {
                             sequence: current_sequence.clone(),
                             append: if app_settings.confirm.append {
@@ -335,7 +390,6 @@ fn handle_input(app: &tauri::AppHandle, tx: std::sync::mpsc::Sender<CaptureSigna
                         current_sequence = String::new();
                     } else {
                         current_sequence.push_str(&string);
-                        println!("current_sequence: {}", current_sequence);
 
                         if app_settings.confirm.auto {
                             let matching_expansion = app_settings
@@ -358,7 +412,6 @@ fn handle_input(app: &tauri::AppHandle, tx: std::sync::mpsc::Sender<CaptureSigna
                                     .is_match(&matching_expansion.unwrap().text);
 
                                 if matching_has_no_variables {
-                                    println!("Auto confirm");
                                     tx.send(CaptureSignal {
                                         sequence: current_sequence.clone(),
                                         append: "".to_string(),
@@ -375,7 +428,6 @@ fn handle_input(app: &tauri::AppHandle, tx: std::sync::mpsc::Sender<CaptureSigna
                     }
                 } else {
                     if string == app_settings.trigger.string {
-                        println!("Start capturing");
                         current_sequence = String::new();
                         is_capturing = true;
                     }
@@ -394,23 +446,77 @@ fn end_capturing(
     append: &str,
     append_enter: bool,
     variable_separator: &str,
+    active_window: &Arc<Mutex<ActiveWindow>>,
+    app_settings: &AppSettings,
 ) {
-    println!("End capturing, {}", current_sequence);
-
     let parts = current_sequence.split(variable_separator);
 
     // Extract abbreviation (first element).
     let abbr = parts.clone().next().unwrap();
 
-    // Find matching expansion.
-    let matching_expansion = expansions.iter().find(|&e| e.abbr == abbr.to_string());
+    // Find all matching expansions.
+    let mut matching_expansions = expansions
+        .iter()
+        .filter(|&e| e.abbr == abbr.to_string())
+        .collect::<Vec<_>>();
 
-    if matching_expansion.is_none() {
+    if matching_expansions.is_empty() {
         return;
     }
 
+    // Sort expansions so the ones assigned to a group are placed first.
+    // This is done so we always check constrained expansions first.
+    matching_expansions.sort_by_key(|e| e.group.is_none());
+
+    let mut chosen_expansion = None;
+
+    // Select first expansion when active group is set
+    if let Some(active_group) = &app_settings.active_group {
+        let active_group_expansions = matching_expansions
+            .iter()
+            .filter(|&e| e.group.is_none() || e.group == Some(active_group.clone()))
+            .collect::<Vec<_>>();
+
+        if !active_group_expansions.is_empty() {
+            chosen_expansion = Some(active_group_expansions[0]);
+        }
+    }
+
+    if chosen_expansion.is_none() {
+        // Find expansion by group matching the active window/app.
+        for exp in matching_expansions.iter() {
+            if let Some(group_id) = &exp.group {
+                let window_props = active_window.lock().unwrap();
+                let process_path = &window_props.process_path;
+
+                // find group in app_settings that has matching id
+                let group = app_settings
+                    .groups
+                    .as_ref()
+                    .unwrap()
+                    .iter()
+                    .find(|&g| g.id == *group_id);
+
+                if group.is_none() {
+                    continue;
+                }
+
+                let platform = tauri_plugin_os::platform();
+
+                if group.unwrap().apps.iter().any(|app| {
+                    app.os == platform && app.path == process_path.to_string_lossy().to_string()
+                }) {
+                    chosen_expansion = Some(exp);
+                    break;
+                }
+            } else {
+                chosen_expansion = Some(exp);
+            }
+        }
+    }
+
     // Parse variables in expansion text.
-    let mut variables = parse_variables(matching_expansion.unwrap());
+    let mut variables = parse_variables(chosen_expansion.unwrap());
     variables.unnamed.reverse();
 
     let mut params_unnamed: Vec<&str> = vec![];
@@ -435,7 +541,7 @@ fn end_capturing(
     // Reverse unnamed parameters to replace them in the correct order.
     params_unnamed.reverse();
 
-    let mut text = matching_expansion.unwrap().text.clone();
+    let mut text = chosen_expansion.unwrap().text.clone();
 
     // Replace unnamed variables ({}, {=default}) in text with provided or default values.
     for variable in variables.unnamed.iter_mut() {
@@ -490,7 +596,6 @@ fn end_capturing(
 
     // Undo captured sequence.
     for _ in 0..char_count_to_remove {
-        println!("Backspace");
         let r = enigo.key(enigo::Key::Backspace, enigo::Direction::Click);
         if r.is_err() {
             println!("Error: {:?}", r);
@@ -504,7 +609,6 @@ fn end_capturing(
             .try_into()
             .unwrap();
 
-        println!("Waiting for {} ms", count);
         std::thread::sleep(std::time::Duration::from_millis(count));
     }
 
