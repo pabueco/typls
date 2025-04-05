@@ -11,7 +11,6 @@ import { getVersion, getName } from "@tauri-apps/api/app";
 import { open } from "@tauri-apps/plugin-shell";
 import { useSortable } from "@vueuse/integrations/useSortable";
 import { UFormField } from "#components";
-import { uniqueId } from "es-toolkit/compat";
 import type { Group, Settings } from "./types";
 import { platform } from "@tauri-apps/plugin-os";
 
@@ -40,7 +39,7 @@ const initialSettings = ref<Settings>({
   ...sourceSettings,
   expansions: sourceSettings.expansions.map((e) => ({
     ...e,
-    id: uniqueId("exp_"),
+    id: e.id || crypto.randomUUID(),
   })),
 });
 const settings = ref<Settings>(cloneDeep(initialSettings.value));
@@ -92,7 +91,7 @@ const save = async (options: { showToast: boolean } = { showToast: false }) => {
       ...settings.value,
       expansions: settings.value.expansions.map((e) => ({
         ...e,
-        id: undefined,
+        id: e.id || crypto.randomUUID(),
       })),
     },
   });
@@ -200,7 +199,7 @@ const openSettingsFolder = async () => {
 
 const addNewExpansion = (index = 0) => {
   settings.value.expansions.splice(index, 0, {
-    id: uniqueId("exp_"),
+    id: crypto.randomUUID(),
     abbr: "",
     text: "",
   });
@@ -404,7 +403,7 @@ onMounted(() => {
         </div>
       </div>
 
-      <div class="p-8 space-y-10">
+      <div class="p-8 space-y-10 mb-20">
         <div>
           <div class="flex mb-5 items-center justify-between">
             <div class="flex items-center gap-3">
@@ -646,7 +645,34 @@ onMounted(() => {
           </div>
 
           <div class="flex items-center justify-between gap-4 mt-16">
-            <h5 class="font-bold text-2xl">Groups</h5>
+            <div class="flex items-center">
+              <h5 class="font-bold text-2xl">Groups</h5>
+
+              <UTooltip
+                :ui="{ content: '!h-auto' }"
+                :content="{ side: 'top' }"
+                class="ml-3"
+              >
+                <UButton
+                  square
+                  icon="i-tabler-question-circle"
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                />
+
+                <template #content>
+                  Groups provide a way to scope expansions, so you can define
+                  multiple with the same abbreviation. <br />
+                  The used expansion is determined by your currently active
+                  group. <br />
+                  You can assign applications to a group to automatically switch
+                  to that group when the application has focus. <br />
+                  Alternatively you can 'permanently' switch the active group
+                  via the dropdown on the top right.
+                </template>
+              </UTooltip>
+            </div>
 
             <div>
               <UButton

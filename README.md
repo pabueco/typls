@@ -4,13 +4,14 @@ typls is a cross-platform app that automatically expands user defined abbreviati
 
 Example: type `'hi`, get `Hi there, it was really nice to meet you!`
 
-The app is built with Tauri (v2 alpha), Rust, Nuxt (Typescript) and Tailwind.
+The app is built with Tauri (v2), Rust, Nuxt (Typescript) and Tailwind.
 
 ## Features
 
 - Cross-platform: Works on MacOS, Windows and Linux (X11)
 - Customizable: Adjust many settings to make it work for you
 - Variables: Pass values to expanded text via placeholders (`{}` or `{name}`) and define default values to make them optional (`{=bar}` or `{foo=bar}`)
+- Groups: Scope abbreviations to applications and automatically use the one matching the active/focused application
 - Works in any app: Because typls listens directly to and simulates keyboard input, it can expand text in any application you interact with: Websites, native apps, terminals to remote servers, etc.
 - Clean and easy to use interface
 
@@ -56,6 +57,8 @@ Now, if you just type `'hi`, you get `Hi there, it was really nice to meet you.`
 
 But you can also pass values to customize some (or all variables): `'hi|Peter` -> `Hi Peter, it was really nice to meet you.`.
 
+### Groups
+
 ## Installation
 
 Download the file for your platform from the [latest release](https://github.com/pabueco/typls/releases/latest) and install it.
@@ -72,8 +75,8 @@ Download the file for your platform from the [latest release](https://github.com
 
 ## Roadmap & Ideas
 
-- [x] Default/fallback values for variables
-- [ ] Enable/disable expansions for different applications (?)
+- [x] Default/fallback values for variables (-> `{variable=default})
+- [x] Enable/disable expansions for different applications (-> Groups)
 
 ## Development
 

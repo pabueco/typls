@@ -98,7 +98,7 @@ function createGroupName(name: string) {
     <div class="flex gap-2 items-start">
       <div :class="{ 'pointer-events-none': !isEditing }">
         <USelectMenu
-          v-model="expansion.group"
+          v-model="expansion.group as any"
           value-key="id"
           label-key="name"
           create-item
@@ -106,7 +106,7 @@ function createGroupName(name: string) {
           :items="groups"
           class="w-36"
           @create="createGroupName"
-          :placeholder="isEditing ? 'Add to group' : ''"
+          :placeholder="isEditing ? 'Add to group' : 'Global'"
           :ui="{
             trailing: expansion.group ? 'pe-1.5' : undefined,
           }"

@@ -11,6 +11,8 @@ use tauri::Manager;
 use active_win_pos_rs::{get_active_window, ActiveWindow};
 use std::time::Duration;
 
+use uuid::Uuid;
+
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 #[serde(rename_all = "camelCase")]
 struct AppSettings {
@@ -47,6 +49,8 @@ struct VariableSettings {
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 #[serde(rename_all = "camelCase")]
 struct Expansion {
+    #[serde(default = "generate_uuid")]
+    id: String,
     abbr: String,
     text: String,
     group: Option<String>,
@@ -76,6 +80,10 @@ const SETTINGS_FILE_NAME: &str = "test.json";
 
 #[cfg(not(dev))]
 const SETTINGS_FILE_NAME: &str = "settings.json";
+
+fn generate_uuid() -> String {
+    Uuid::new_v4().to_string()
+}
 
 #[tauri::command]
 fn get_settings(state: tauri::State<'_, AppState>) -> Result<AppSettings, String> {
@@ -146,6 +154,7 @@ fn default_settings() -> AppSettings {
             separator: "|".to_string(),
         },
         expansions: vec![Expansion {
+            id: "typls".to_string(),
             abbr: "typls".to_string(),
             text: "Type less with typls: https://typls.app".to_string(),
             group: None,

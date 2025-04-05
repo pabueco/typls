@@ -76,6 +76,7 @@ function removeApp(app: Group["apps"][number]) {
         </UTooltip>
       </div>
       <UButton
+        v-if="isEditing"
         @click="selectApps()"
         size="xs"
         icon="i-tabler-plus"
