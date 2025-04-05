@@ -218,8 +218,6 @@ pub fn run() {
 
             thread::spawn(move || {
                 for received in rx {
-                    println!("Got: {}", received.sequence);
-
                     let app_state = app_handle.state::<AppState>();
                     let app_settings = app_state.settings.read().unwrap();
 
@@ -377,8 +375,6 @@ fn handle_input(app: &tauri::AppHandle, tx: std::sync::mpsc::Sender<CaptureSigna
                 if is_capturing {
                     // TODO: Make tab work? string == '\t'
                     if app_settings.confirm.chars.contains(&string) {
-                        println!("End capturing, {}", current_sequence);
-
                         tx.send(CaptureSignal {
                             sequence: current_sequence.clone(),
                             append: if app_settings.confirm.append {
@@ -394,7 +390,6 @@ fn handle_input(app: &tauri::AppHandle, tx: std::sync::mpsc::Sender<CaptureSigna
                         current_sequence = String::new();
                     } else {
                         current_sequence.push_str(&string);
-                        println!("current_sequence: {}", current_sequence);
 
                         if app_settings.confirm.auto {
                             let matching_expansion = app_settings
@@ -417,7 +412,6 @@ fn handle_input(app: &tauri::AppHandle, tx: std::sync::mpsc::Sender<CaptureSigna
                                     .is_match(&matching_expansion.unwrap().text);
 
                                 if matching_has_no_variables {
-                                    println!("Auto confirm");
                                     tx.send(CaptureSignal {
                                         sequence: current_sequence.clone(),
                                         append: "".to_string(),
@@ -434,7 +428,6 @@ fn handle_input(app: &tauri::AppHandle, tx: std::sync::mpsc::Sender<CaptureSigna
                     }
                 } else {
                     if string == app_settings.trigger.string {
-                        println!("Start capturing");
                         current_sequence = String::new();
                         is_capturing = true;
                     }
@@ -456,8 +449,6 @@ fn end_capturing(
     active_window: &Arc<Mutex<ActiveWindow>>,
     app_settings: &AppSettings,
 ) {
-    println!("End capturing, {}", current_sequence);
-
     let parts = current_sequence.split(variable_separator);
 
     // Extract abbreviation (first element).
@@ -497,12 +488,6 @@ fn end_capturing(
             if let Some(group_id) = &exp.group {
                 let window_props = active_window.lock().unwrap();
                 let process_path = &window_props.process_path;
-
-                println!(
-                    "Expansion has group {}, current window path is {}",
-                    group_id,
-                    process_path.display()
-                );
 
                 // find group in app_settings that has matching id
                 let group = app_settings
@@ -611,7 +596,6 @@ fn end_capturing(
 
     // Undo captured sequence.
     for _ in 0..char_count_to_remove {
-        println!("Backspace");
         let r = enigo.key(enigo::Key::Backspace, enigo::Direction::Click);
         if r.is_err() {
             println!("Error: {:?}", r);
@@ -625,7 +609,6 @@ fn end_capturing(
             .try_into()
             .unwrap();
 
-        println!("Waiting for {} ms", count);
         std::thread::sleep(std::time::Duration::from_millis(count));
     }
 
