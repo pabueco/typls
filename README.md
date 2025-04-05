@@ -59,6 +59,12 @@ But you can also pass values to customize some (or all variables): `'hi|Peter` -
 
 ### Groups
 
+Groups can be used to define multiple expansions with the same abbreviation. Only expansions in the active group (or without any group) are considered when expanding an abbreviation.
+
+By default the active group is determined automatically based on the currently focused application. You can assign apps to groups to only make expansions in these groups available within the matching applications.
+
+You can also set the active group manually (and permanently) via the menu in the top right of the app.
+
 ## Installation
 
 Download the file for your platform from the [latest release](https://github.com/pabueco/typls/releases/latest) and install it.
