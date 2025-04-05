@@ -184,11 +184,6 @@ pub fn run() {
         match get_active_window() {
             Ok(win) => {
                 let mut global_var = gv_clone.lock().unwrap();
-
-                if global_var.window_id != win.window_id {
-                    println!("Active window: {:?}", win);
-                }
-
                 *global_var = win;
             }
             Err(_) => {
@@ -484,19 +479,12 @@ fn end_capturing(
 
     let mut chosen_expansion = None;
 
-    println!("active_group: {:?}", app_settings.active_group);
-    println!("matching_expansions : {:?}", matching_expansions);
-
     // Select first expansion when active group is set
     if let Some(active_group) = &app_settings.active_group {
-        println!("active_group: {:?}", active_group);
-
         let active_group_expansions = matching_expansions
             .iter()
             .filter(|&e| e.group.is_none() || e.group == Some(active_group.clone()))
             .collect::<Vec<_>>();
-
-        println!("active_group_expansions: {:?}", active_group_expansions);
 
         if !active_group_expansions.is_empty() {
             chosen_expansion = Some(active_group_expansions[0]);
