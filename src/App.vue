@@ -206,6 +206,9 @@ const addNewExpansion = (index = 0) => {
 };
 
 const addNewGroup = () => {
+  if (!settings.value.groups) {
+    settings.value.groups = [];
+  }
   settings.value.groups.push({
     id: crypto.randomUUID(),
     name: "(empty)",
